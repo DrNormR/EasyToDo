@@ -97,5 +97,13 @@ namespace to_do_list
         {
             // The checkbox state is automatically updated through binding
         }
+
+        private void DeleteItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.DataContext is NoteItem item)
+            {
+                _note.Items.Remove(item);
+            }
+        }
     }
 }

@@ -47,22 +47,57 @@
                      ItemsSource="{Binding Items}">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <DockPanel Margin="0,2">
-                        <CheckBox IsChecked="{Binding IsChecked}" 
-                                 Margin="0,0,5,0"
-                                 Click="CheckBox_Click"/>
-                        <TextBlock Text="{Binding Text}">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsChecked}" Value="True">
-                                            <Setter Property="TextDecorations" Value="Strikethrough"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                    </DockPanel>
+                    <Border x:Name="ItemBorder" Background="Transparent" Padding="2">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <CheckBox Grid.Column="0" 
+                                     IsChecked="{Binding IsChecked}" 
+                                     Margin="0,0,5,0" 
+                                     Click="CheckBox_Click"
+                                     VerticalAlignment="Center"/>
+                            
+                            <TextBlock Grid.Column="1" 
+                                      Text="{Binding Text}" 
+                                      VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsChecked}" Value="True">
+                                                <Setter Property="TextDecorations" Value="Strikethrough"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            
+                            <Button Grid.Column="2" 
+                                   Content="X"
+                                   Width="20"
+                                   Height="20"
+                                   Margin="5,0,0,0"
+                                   Click="DeleteItem_Click"
+                                   Background="Transparent"
+                                   BorderThickness="0"
+                                   Foreground="Red"
+                                   FontWeight="Bold"
+                                   FontSize="14">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsMouseOver, ElementName=ItemBorder}" Value="False">
+                                                <Setter Property="Visibility" Value="Hidden"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </Grid>
+                    </Border>
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
             <ItemsControl.ItemsPanel>
