@@ -1,0 +1,89 @@
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+
+namespace to_do_list
+{
+    public partial class NoteWindow : Window
+    {
+        private readonly Note _note;
+
+        public NoteWindow(Note note)
+        {
+            InitializeComponent();
+            _note = note;
+            DataContext = _note;
+
+            // Set initial color
+            SetBackgroundColor(_note.BackgroundColor);
+            ColorPicker.SelectedIndex = 0; // Default to yellow
+
+            // Set window position slightly offset from cursor
+            var mousePosition = Mouse.GetPosition(Application.Current.MainWindow);
+            var mainWindow = Application.Current.MainWindow;
+            if (mainWindow != null)
+            {
+                var point = mainWindow.PointToScreen(mousePosition);
+                Left = point.X + 20;
+                Top = point.Y + 20;
+            }
+        }
+
+        private void NewItemTextBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter && sender is TextBox textBox)
+            {
+                if (!string.IsNullOrWhiteSpace(textBox.Text) && 
+                    textBox.Text != "Type here to add a new item...")
+                {
+                    _note.Items.Add(new NoteItem { Text = textBox.Text, IsChecked = false });
+                    textBox.Text = string.Empty;
+                    e.Handled = true; // Prevent the beep sound
+                }
+            }
+        }
+
+        private void NewItemTextBox_GotFocus(object sender, RoutedEventArgs e)
+        {
+            if (sender is TextBox textBox && textBox.Text == "Type here to add a new item...")
+            {
+                textBox.Text = string.Empty;
+                textBox.FontStyle = FontStyles.Normal;
+            }
+        }
+
+        private void NewItemTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (sender is TextBox textBox && string.IsNullOrWhiteSpace(textBox.Text))
+            {
+                textBox.Text = "Type here to add a new item...";
+                textBox.FontStyle = FontStyles.Italic;
+            }
+        }
+
+        private void ColorPicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (ColorPicker.SelectedItem is ComboBoxItem selectedItem)
+            {
+                var colorHex = selectedItem.Tag.ToString();
+                if (colorHex != null)
+                {
+                    var color = (Color)ColorConverter.ConvertFromString(colorHex);
+                    _note.BackgroundColor = color;
+                    SetBackgroundColor(color);
+                }
+            }
+        }
+
+        private void SetBackgroundColor(Color color)
+        {
+            Background = new SolidColorBrush(color);
+        }
+
+        private void CheckBox_Click(object sender, RoutedEventArgs e)
+        {
+            // The checkbox state is automatically updated through binding
+        }
+    }
+}
