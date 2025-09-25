@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -8,6 +8,7 @@ namespace to_do_list
     public partial class NoteWindow : Window
     {
         private readonly Note _note;
+        private bool _isPinned = false;
 
         public NoteWindow(Note note)
         {
@@ -27,6 +28,17 @@ namespace to_do_list
                 var point = mainWindow.PointToScreen(mousePosition);
                 Left = point.X + 20;
                 Top = point.Y + 20;
+            }
+        }
+
+        private void PinButton_Click(object sender, RoutedEventArgs e)
+        {
+            _isPinned = !_isPinned;
+            Topmost = _isPinned;
+            if (sender is Button pinButton)
+            {
+                pinButton.Content = _isPinned ? "📍" : "📌";
+                pinButton.ToolTip = _isPinned ? "Unpin window" : "Pin window on top";
             }
         }
 
