@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -10,6 +11,9 @@ namespace to_do_list
     {
         private readonly Note _note;
         private bool _isPinned = false;
+
+        // Event to notify when a note changes
+        public event EventHandler NoteChanged;
 
         public NoteWindow(Note note)
         {
@@ -53,6 +57,7 @@ namespace to_do_list
                     _note.Items.Add(new NoteItem { Text = textBox.Text, IsChecked = false });
                     textBox.Text = string.Empty;
                     e.Handled = true; // Prevent the beep sound
+                    OnNoteChanged(); // Notify that the note has changed
                 }
             }
         }
@@ -85,6 +90,7 @@ namespace to_do_list
                     var color = (Color)ColorConverter.ConvertFromString(colorHex);
                     _note.BackgroundColor = color;
                     SetBackgroundColor(color);
+                    OnNoteChanged(); // Notify that the note has changed
                 }
             }
         }
@@ -97,6 +103,7 @@ namespace to_do_list
         private void CheckBox_Click(object sender, RoutedEventArgs e)
         {
             // The checkbox state is automatically updated through binding
+            OnNoteChanged(); // Notify that the note has changed
         }
 
         private void DeleteItem_Click(object sender, RoutedEventArgs e)
@@ -104,6 +111,7 @@ namespace to_do_list
             if (sender is Button button && button.DataContext is NoteItem item)
             {
                 _note.Items.Remove(item);
+                OnNoteChanged(); // Notify that the note has changed
             }
         }
 
@@ -157,6 +165,7 @@ namespace to_do_list
                         {
                             textBox.Visibility = Visibility.Collapsed;
                             textBlock.Visibility = Visibility.Visible;
+                            OnNoteChanged(); // Notify that the note has changed
                         }
                     }
                     e.Handled = true;
@@ -181,6 +190,12 @@ namespace to_do_list
                     e.Handled = true;
                 }
             }
+        }
+
+        private void OnNoteChanged()
+        {
+            // Raise the event to notify that the note has changed
+            NoteChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 }
