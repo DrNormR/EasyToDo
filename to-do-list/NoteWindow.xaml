@@ -65,112 +65,115 @@
             </ComboBox>
         </StackPanel>
 
-        <ItemsControl x:Name="ItemsListBox" 
-                     Grid.Row="2"
-                     Background="Transparent"
-                     BorderThickness="0"
-                     ItemsSource="{Binding Items}">
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <Border x:Name="ItemBorder" 
-                            Background="Transparent" 
-                            Padding="2"
-                            AllowDrop="True"
-                            PreviewMouseMove="ItemBorder_PreviewMouseMove"
-                            PreviewMouseLeftButtonUp="ItemBorder_PreviewMouseLeftButtonUp"
-                            DragOver="ItemBorder_DragOver"
-                            Drop="ItemBorder_Drop">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            
-                            <TextBlock Grid.Column="0"
-                                      Text="⋮⋮"
-                                      FontSize="14"
-                                      FontWeight="Bold"
-                                      Margin="0,0,5,0"
-                                      Cursor="Hand"
-                                      VerticalAlignment="Center"
-                                      PreviewMouseLeftButtonDown="DragHandle_PreviewMouseLeftButtonDown">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Visibility" Value="Hidden"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsMouseOver, ElementName=ItemBorder}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-
-                            <CheckBox Grid.Column="1" 
-                                     IsChecked="{Binding IsChecked}" 
-                                     Margin="0,0,5,0" 
-                                     Click="CheckBox_Click"
-                                     VerticalAlignment="Center"
-                                     Style="{StaticResource CircleCheckBox}"/>
-
-                            <Grid Grid.Column="2">
-                                <TextBlock Text="{Binding Text}" 
+        <ScrollViewer Grid.Row="2" 
+                        VerticalScrollBarVisibility="Auto" 
+                        HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl x:Name="ItemsListBox" 
+                         Background="Transparent"
+                         BorderThickness="0"
+                         ItemsSource="{Binding Items}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border x:Name="ItemBorder" 
+                                Background="Transparent" 
+                                Padding="2"
+                                AllowDrop="True"
+                                PreviewMouseMove="ItemBorder_PreviewMouseMove"
+                                PreviewMouseLeftButtonUp="ItemBorder_PreviewMouseLeftButtonUp"
+                                DragOver="ItemBorder_DragOver"
+                                Drop="ItemBorder_Drop">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <TextBlock Grid.Column="0"
+                                         Text="⋮⋮"
+                                         FontSize="14"
+                                         FontWeight="Bold"
+                                         Margin="0,0,5,0"
+                                         Cursor="Hand"
                                          VerticalAlignment="Center"
-                                         MouseDown="TextBlock_MouseDown"
-                                         Cursor="IBeam">
+                                         PreviewMouseLeftButtonDown="DragHandle_PreviewMouseLeftButtonDown">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Hidden"/>
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsChecked}" Value="True">
-                                                    <Setter Property="TextDecorations" Value="Strikethrough"/>
+                                                <DataTrigger Binding="{Binding IsMouseOver, ElementName=ItemBorder}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible"/>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
                                     </TextBlock.Style>
                                 </TextBlock>
-                                <TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}"
-                                         Visibility="Collapsed"
-                                         Name="EditTextBox"
-                                         LostFocus="EditTextBox_LostFocus"
-                                         KeyDown="EditTextBox_KeyDown"
-                                         Background="Transparent"
-                                         BorderThickness="0"/>
+
+                                <CheckBox Grid.Column="1" 
+                                         IsChecked="{Binding IsChecked}" 
+                                         Margin="0,0,5,0" 
+                                         Click="CheckBox_Click"
+                                         VerticalAlignment="Center"
+                                         Style="{StaticResource CircleCheckBox}"/>
+
+                                <Grid Grid.Column="2">
+                                    <TextBlock Text="{Binding Text}" 
+                                             VerticalAlignment="Center"
+                                             MouseDown="TextBlock_MouseDown"
+                                             Cursor="IBeam">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsChecked}" Value="True">
+                                                        <Setter Property="TextDecorations" Value="Strikethrough"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}"
+                                             Visibility="Collapsed"
+                                             Name="EditTextBox"
+                                             LostFocus="EditTextBox_LostFocus"
+                                             KeyDown="EditTextBox_KeyDown"
+                                             Background="Transparent"
+                                             BorderThickness="0"/>
+                                </Grid>
+                                
+                                <Button Grid.Column="3" 
+                                       Content="X"
+                                       Width="20"
+                                       Height="20"
+                                       Margin="5,0,0,0"
+                                       Click="DeleteItem_Click"
+                                       Background="Transparent"
+                                       BorderThickness="0"
+                                       Foreground="Red"
+                                       FontWeight="Bold"
+                                       FontSize="14"
+                                       VerticalAlignment="Center">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsMouseOver, ElementName=ItemBorder}" Value="False">
+                                                    <Setter Property="Visibility" Value="Hidden"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
                             </Grid>
-                            
-                            <Button Grid.Column="3" 
-                                   Content="X"
-                                   Width="20"
-                                   Height="20"
-                                   Margin="5,0,0,0"
-                                   Click="DeleteItem_Click"
-                                   Background="Transparent"
-                                   BorderThickness="0"
-                                   Foreground="Red"
-                                   FontWeight="Bold"
-                                   FontSize="14"
-                                   VerticalAlignment="Center">
-                                <Button.Style>
-                                    <Style TargetType="Button">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsMouseOver, ElementName=ItemBorder}" Value="False">
-                                                <Setter Property="Visibility" Value="Hidden"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
-                        </Grid>
-                    </Border>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <StackPanel/>
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-        </ItemsControl>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+        </ScrollViewer>
 
         <Separator Grid.Row="3" Margin="0,5" Opacity="0.5"/>
         
