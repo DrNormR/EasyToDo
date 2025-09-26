@@ -11,6 +11,9 @@ namespace to_do_list
     {
         private readonly Note _note;
         private bool _isPinned = false;
+        private Point _startPoint;
+        private bool _isDragging = false;
+        private NoteItem _draggedItem;
 
         // Event to notify when a note changes
         public event EventHandler NoteChanged;
@@ -196,6 +199,87 @@ namespace to_do_list
         {
             // Raise the event to notify that the note has changed
             NoteChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        private void DragHandle_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is FrameworkElement dragHandle && dragHandle.DataContext is NoteItem item)
+            {
+                _startPoint = e.GetPosition(null);
+                _isDragging = true;
+                _draggedItem = item;
+                dragHandle.CaptureMouse();
+                e.Handled = true;
+            }
+        }
+
+        private void ItemBorder_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (_isDragging && e.LeftButton == MouseButtonState.Pressed && _draggedItem != null)
+            {
+                Point position = e.GetPosition(null);
+                Vector diff = _startPoint - position;
+
+                if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                    Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+                {
+                    if (sender is FrameworkElement element)
+                    {
+                        if (Mouse.Captured is FrameworkElement captured)
+                        {
+                            captured.ReleaseMouseCapture();
+                        }
+
+                        DataObject dragData = new DataObject("NoteItem", _draggedItem);
+                        DragDrop.DoDragDrop(element, dragData, DragDropEffects.Move);
+                        _isDragging = false;
+                        OnNoteChanged();
+                    }
+                }
+            }
+        }
+
+        private void ItemBorder_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            _isDragging = false;
+            if (Mouse.Captured is FrameworkElement captured)
+            {
+                captured.ReleaseMouseCapture();
+            }
+        }
+
+        private void ItemBorder_DragOver(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent("NoteItem"))
+            {
+                e.Effects = DragDropEffects.Move;
+            }
+            else
+            {
+                e.Effects = DragDropEffects.None;
+            }
+            e.Handled = true;
+        }
+
+        private void ItemBorder_Drop(object sender, DragEventArgs e)
+        {
+            if (sender is FrameworkElement element &&
+                element.DataContext is NoteItem targetItem &&
+                e.Data.GetDataPresent("NoteItem"))
+            {
+                NoteItem draggedItem = e.Data.GetData("NoteItem") as NoteItem;
+                if (draggedItem != null && !ReferenceEquals(draggedItem, targetItem))
+                {
+                    int draggedIndex = _note.Items.IndexOf(draggedItem);
+                    int targetIndex = _note.Items.IndexOf(targetItem);
+
+                    if (draggedIndex != -1 && targetIndex != -1)
+                    {
+                        _note.Items.Move(draggedIndex, targetIndex);
+                        OnNoteChanged();
+                    }
+                }
+            }
         }
     }
 }

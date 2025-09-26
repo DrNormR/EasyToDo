@@ -18,10 +18,6 @@
                                 <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
                                 <Setter TargetName="CheckMark" Property="Fill" Value="#FF0078D7"/>
                             </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="Circle" Property="Stroke" Value="#FFBFBFBF"/>
-                                <Setter TargetName="Circle" Property="Fill" Value="#FFF0F0F0"/>
-                            </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -76,22 +72,50 @@
                      ItemsSource="{Binding Items}">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <Border x:Name="ItemBorder" Background="Transparent" Padding="2">
+                    <Border x:Name="ItemBorder" 
+                            Background="Transparent" 
+                            Padding="2"
+                            AllowDrop="True"
+                            PreviewMouseMove="ItemBorder_PreviewMouseMove"
+                            PreviewMouseLeftButtonUp="ItemBorder_PreviewMouseLeftButtonUp"
+                            DragOver="ItemBorder_DragOver"
+                            Drop="ItemBorder_Drop">
                         <Grid>
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             
-                            <CheckBox Grid.Column="0" 
+                            <TextBlock Grid.Column="0"
+                                      Text="⋮⋮"
+                                      FontSize="14"
+                                      FontWeight="Bold"
+                                      Margin="0,0,5,0"
+                                      Cursor="Hand"
+                                      VerticalAlignment="Center"
+                                      PreviewMouseLeftButtonDown="DragHandle_PreviewMouseLeftButtonDown">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Hidden"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsMouseOver, ElementName=ItemBorder}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <CheckBox Grid.Column="1" 
                                      IsChecked="{Binding IsChecked}" 
                                      Margin="0,0,5,0" 
                                      Click="CheckBox_Click"
                                      VerticalAlignment="Center"
                                      Style="{StaticResource CircleCheckBox}"/>
 
-                            <Grid Grid.Column="1">
+                            <Grid Grid.Column="2">
                                 <TextBlock Text="{Binding Text}" 
                                          VerticalAlignment="Center"
                                          MouseDown="TextBlock_MouseDown"
@@ -115,7 +139,7 @@
                                          BorderThickness="0"/>
                             </Grid>
                             
-                            <Button Grid.Column="2" 
+                            <Button Grid.Column="3" 
                                    Content="X"
                                    Width="20"
                                    Height="20"
