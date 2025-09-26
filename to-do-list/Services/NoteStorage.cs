@@ -1,10 +1,12 @@
-﻿using System;
+using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Text.Json;
 using System.Windows.Media;
+using to_do_list.Converters;
+using to_do_list.Models;
 
-namespace to_do_list
+namespace to_do_list.Services
 {
     public static class NoteStorage
     {
@@ -14,7 +16,6 @@ namespace to_do_list
             "notes.json"
         );
 
-        // JsonSerializerOptions setup for color serialization
         private static readonly JsonSerializerOptions Options = new JsonSerializerOptions
         {
             WriteIndented = true,
@@ -25,15 +26,12 @@ namespace to_do_list
         {
             try
             {
-                // Ensure the directory exists
                 Directory.CreateDirectory(Path.GetDirectoryName(SaveFilePath));
-
                 string jsonString = JsonSerializer.Serialize(notes, Options);
                 File.WriteAllText(SaveFilePath, jsonString);
             }
             catch (Exception ex)
             {
-                // In a production app, you might want to log this error
                 System.Diagnostics.Debug.WriteLine($"Error saving notes: {ex.Message}");
             }
         }
@@ -55,21 +53,6 @@ namespace to_do_list
             }
 
             return new ObservableCollection<Note>();
-        }
-    }
-
-    // Custom JSON converter for System.Windows.Media.Color
-    public class ColorJsonConverter : System.Text.Json.Serialization.JsonConverter<Color>
-    {
-        public override Color Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            var colorString = reader.GetString();
-            return (Color)ColorConverter.ConvertFromString(colorString);
-        }
-
-        public override void Write(Utf8JsonWriter writer, Color value, JsonSerializerOptions options)
-        {
-            writer.WriteStringValue(value.ToString());
         }
     }
 }

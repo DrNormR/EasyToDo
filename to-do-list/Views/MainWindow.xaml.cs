@@ -3,9 +3,10 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
 using System.Windows;
-using to_do_list;
+using to_do_list.Models;
+using to_do_list.Services;
 
-namespace to_do_list
+namespace to_do_list.Views
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
