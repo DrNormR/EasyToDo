@@ -4,6 +4,30 @@
         Title="Note" Height="400" Width="300"
         WindowStyle="SingleBorderWindow"
         ResizeMode="CanResizeWithGrip">
+    <Window.Resources>
+        <Style x:Key="CircleCheckBox" TargetType="CheckBox">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Grid>
+                            <Ellipse x:Name="Circle" Width="16" Height="16" Stroke="Gray" StrokeThickness="2" Fill="White"/>
+                            <Ellipse x:Name="CheckMark" Width="10" Height="10" Fill="Gray" Visibility="Collapsed"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="CheckMark" Property="Fill" Value="#FF0078D7"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Circle" Property="Stroke" Value="#FFBFBFBF"/>
+                                <Setter TargetName="Circle" Property="Fill" Value="#FFF0F0F0"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
     <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -64,7 +88,8 @@
                                      IsChecked="{Binding IsChecked}" 
                                      Margin="0,0,5,0" 
                                      Click="CheckBox_Click"
-                                     VerticalAlignment="Center"/>
+                                     VerticalAlignment="Center"
+                                     Style="{StaticResource CircleCheckBox}"/>
 
                             <Grid Grid.Column="1">
                                 <TextBlock Text="{Binding Text}" 
