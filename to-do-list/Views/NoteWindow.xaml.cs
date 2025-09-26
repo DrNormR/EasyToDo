@@ -121,18 +121,21 @@ namespace to_do_list.Views
 
         private void TextBlock_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (e.ClickCount == 1 && sender is TextBlock textBlock)
+            if (e.ClickCount == 1)
             {
-                var parent = textBlock.Parent as Grid;
-                if (parent != null)
+                var grid = sender as Grid;
+                if (grid != null)
                 {
-                    var textBox = parent.Children.OfType<TextBox>().FirstOrDefault();
-                    if (textBox != null)
+                    var textBlock = grid.Children.OfType<TextBlock>().FirstOrDefault();
+                    var textBox = grid.Children.OfType<TextBox>().FirstOrDefault();
+                    
+                    if (textBlock != null && textBox != null)
                     {
                         textBlock.Visibility = Visibility.Collapsed;
                         textBox.Visibility = Visibility.Visible;
                         textBox.Focus();
                         textBox.SelectAll();
+                        e.Handled = true;
                     }
                 }
             }

@@ -66,8 +66,8 @@
         </StackPanel>
 
         <ScrollViewer Grid.Row="2" 
-                        VerticalScrollBarVisibility="Auto" 
-                        HorizontalScrollBarVisibility="Disabled">
+                     VerticalScrollBarVisibility="Auto" 
+                     HorizontalScrollBarVisibility="Disabled">
             <ItemsControl x:Name="ItemsListBox" 
                          Background="Transparent"
                          BorderThickness="0"
@@ -117,10 +117,9 @@
                                          VerticalAlignment="Center"
                                          Style="{StaticResource CircleCheckBox}"/>
 
-                                <Grid Grid.Column="2">
+                                <Grid Grid.Column="2" Background="Transparent" MouseDown="TextBlock_MouseDown">
                                     <TextBlock Text="{Binding Text}" 
                                              VerticalAlignment="Center"
-                                             MouseDown="TextBlock_MouseDown"
                                              Cursor="IBeam">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
@@ -155,9 +154,10 @@
                                        VerticalAlignment="Center">
                                     <Button.Style>
                                         <Style TargetType="Button">
+                                            <Setter Property="Visibility" Value="Hidden"/>
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsMouseOver, ElementName=ItemBorder}" Value="False">
-                                                    <Setter Property="Visibility" Value="Hidden"/>
+                                                <DataTrigger Binding="{Binding IsMouseOver, ElementName=ItemBorder}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible"/>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
@@ -167,11 +167,6 @@
                         </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <StackPanel/>
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
             </ItemsControl>
         </ScrollViewer>
 
