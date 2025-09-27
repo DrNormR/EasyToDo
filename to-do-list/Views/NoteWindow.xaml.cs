@@ -104,26 +104,20 @@ namespace to_do_list.Views
             Background = new SolidColorBrush(color);
         }
 
-        private void CheckBox_Click(object sender, RoutedEventArgs e)
+        private void CheckBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            // The checkbox state is automatically updated through binding
-            OnNoteChanged(); // Notify that the note has changed
-        }
-
-        private void DeleteItem_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            System.Diagnostics.Debug.WriteLine("DeleteItem_PreviewMouseLeftButtonDown called!");
+            System.Diagnostics.Debug.WriteLine("CheckBox_PreviewMouseLeftButtonDown called!");
             
-            if (sender is FrameworkElement element && element.DataContext is NoteItem item)
+            if (sender is CheckBox checkBox && checkBox.DataContext is NoteItem item)
             {
-                System.Diagnostics.Debug.WriteLine($"Found NoteItem: {item.Text}");
-                System.Diagnostics.Debug.WriteLine($"Items count before removal: {_note.Items.Count}");
+                System.Diagnostics.Debug.WriteLine($"Item IsChecked before toggle: {item.IsChecked}");
                 
-                bool removed = _note.Items.Remove(item);
-                System.Diagnostics.Debug.WriteLine($"Item removed successfully: {removed}");
-                System.Diagnostics.Debug.WriteLine($"Items count after removal: {_note.Items.Count}");
+                // Toggle the IsChecked state manually
+                item.IsChecked = !item.IsChecked;
                 
-                OnNoteChanged();
+                System.Diagnostics.Debug.WriteLine($"Item IsChecked after toggle: {item.IsChecked}");
+                
+                OnNoteChanged(); // Notify that the note has changed
                 e.Handled = true; // Prevent further event processing
             }
             else
@@ -133,71 +127,34 @@ namespace to_do_list.Views
         }
 
         // Keep the old method for reference but it shouldn't be called anymore
-        private void DeleteItem_Click(object sender, RoutedEventArgs e)
+        private void CheckBox_Click(object sender, RoutedEventArgs e)
         {
-            System.Diagnostics.Debug.WriteLine("DeleteItem_Click called!");
+            System.Diagnostics.Debug.WriteLine("CheckBox_Click called!");
             
-            if (sender is FrameworkElement element)
+            if (sender is CheckBox checkBox)
             {
-                System.Diagnostics.Debug.WriteLine($"Sender is FrameworkElement: {element.GetType().Name}");
-                System.Diagnostics.Debug.WriteLine($"DataContext type: {element.DataContext?.GetType().Name ?? "null"}");
+                System.Diagnostics.Debug.WriteLine($"CheckBox IsChecked: {checkBox.IsChecked}");
+                System.Diagnostics.Debug.WriteLine($"DataContext type: {checkBox.DataContext?.GetType().Name ?? "null"}");
                 
-                if (element.DataContext is NoteItem item)
+                if (checkBox.DataContext is NoteItem item)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Found NoteItem: {item.Text}");
-                    System.Diagnostics.Debug.WriteLine($"Items count before removal: {_note.Items.Count}");
-                    
-                    bool removed = _note.Items.Remove(item);
-                    System.Diagnostics.Debug.WriteLine($"Item removed successfully: {removed}");
-                    System.Diagnostics.Debug.WriteLine($"Items count after removal: {_note.Items.Count}");
-                    
-                    OnNoteChanged();
-                }
-                else
-                {
-                    System.Diagnostics.Debug.WriteLine("DataContext is not NoteItem");
-                    
-                    // Let's try finding it through visual tree
-                    var parent = element.Parent;
-                    System.Diagnostics.Debug.WriteLine($"Parent type: {parent?.GetType().Name ?? "null"}");
-                    
-                    if (parent is Grid grid)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Grid DataContext: {grid.DataContext?.GetType().Name ?? "null"}");
-                        
-                        var border = grid.Parent as Border;
-                        if (border != null)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"Border DataContext: {border.DataContext?.GetType().Name ?? "null"}");
-                            
-                            if (border.DataContext is NoteItem borderItem)
-                            {
-                                System.Diagnostics.Debug.WriteLine($"Found item through border: {borderItem.Text}");
-                                bool removed = _note.Items.Remove(borderItem);
-                                System.Diagnostics.Debug.WriteLine($"Item removed through border: {removed}");
-                                OnNoteChanged();
-                            }
-                        }
-                    }
+                    System.Diagnostics.Debug.WriteLine($"Item IsChecked before: {item.IsChecked}");
+                    // The checkbox state should be automatically updated through binding
+                    System.Diagnostics.Debug.WriteLine($"Item IsChecked after: {item.IsChecked}");
                 }
             }
-            else
-            {
-                System.Diagnostics.Debug.WriteLine("Sender is not FrameworkElement");
-            }
+            
+            OnNoteChanged(); // Notify that the note has changed
         }
 
-        // Helper method to find parent of specific type
-        private static T FindParent<T>(DependencyObject child) where T : DependencyObject
+        private void DeleteItem_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            var parent = VisualTreeHelper.GetParent(child);
-            
-            while (parent != null && !(parent is T))
+            if (sender is FrameworkElement element && element.DataContext is NoteItem item)
             {
-                parent = VisualTreeHelper.GetParent(parent);
+                _note.Items.Remove(item);
+                OnNoteChanged();
+                e.Handled = true; // Prevent further event processing
             }
-            
-            return parent as T;
         }
 
         private void TextBlock_MouseDown(object sender, MouseButtonEventArgs e)
