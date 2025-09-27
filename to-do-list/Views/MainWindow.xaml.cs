@@ -57,7 +57,7 @@ namespace to_do_list.Views
                 {
                     Title = note.Title + " (Copy)",
                     BackgroundColor = note.BackgroundColor,
-                    Items = new ObservableCollection<NoteItem>(note.Items.Select(i => new NoteItem { Text = i.Text, IsChecked = i.IsChecked }))
+                    Items = new ObservableCollection<NoteItem>(note.Items.Select(i => new NoteItem { Text = i.Text, IsChecked = i.IsChecked, IsCritical = i.IsCritical }))
                 };
                 Notes.Add(copy);
             }

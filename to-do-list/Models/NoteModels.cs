@@ -9,6 +9,7 @@ namespace to_do_list
     {
         private string _text;
         private bool _isChecked;
+        private bool _isCritical;
 
         public string Text
         {
@@ -31,6 +32,19 @@ namespace to_do_list
                 if (_isChecked != value)
                 {
                     _isChecked = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public bool IsCritical
+        {
+            get => _isCritical;
+            set
+            {
+                if (_isCritical != value)
+                {
+                    _isCritical = value;
                     OnPropertyChanged();
                 }
             }

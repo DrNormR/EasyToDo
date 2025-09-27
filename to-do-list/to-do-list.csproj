@@ -10,9 +10,9 @@
     <ApplicationIcon>resources/post-it.ico</ApplicationIcon>
     
     <!-- Version Information -->
-    <Version>1.1.0</Version>
-    <AssemblyVersion>1.1.0.0</AssemblyVersion>
-    <FileVersion>1.1.0.0</FileVersion>
+    <Version>1.2.0</Version>
+    <AssemblyVersion>1.2.0.0</AssemblyVersion>
+    <FileVersion>1.2.0.0</FileVersion>
     <AssemblyTitle>EasyToDo</AssemblyTitle>
     <Product>EasyToDo - Sticky Notes Todo App</Product>
     <Description>A simple and intuitive sticky notes todo application for Windows</Description>

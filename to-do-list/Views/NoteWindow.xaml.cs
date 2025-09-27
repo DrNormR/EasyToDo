@@ -58,7 +58,7 @@ namespace to_do_list.Views
                 if (!string.IsNullOrWhiteSpace(textBox.Text) && 
                     textBox.Text != "Type here to add a new item...")
                 {
-                    _note.Items.Add(new NoteItem { Text = textBox.Text, IsChecked = false });
+                    _note.Items.Add(new NoteItem { Text = textBox.Text, IsChecked = false, IsCritical = false });
                     textBox.Text = string.Empty;
                     e.Handled = true; // Prevent the beep sound
                     OnNoteChanged(); // Notify that the note has changed
@@ -106,45 +106,13 @@ namespace to_do_list.Views
 
         private void CheckBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            System.Diagnostics.Debug.WriteLine("CheckBox_PreviewMouseLeftButtonDown called!");
-            
             if (sender is CheckBox checkBox && checkBox.DataContext is NoteItem item)
             {
-                System.Diagnostics.Debug.WriteLine($"Item IsChecked before toggle: {item.IsChecked}");
-                
                 // Toggle the IsChecked state manually
                 item.IsChecked = !item.IsChecked;
-                
-                System.Diagnostics.Debug.WriteLine($"Item IsChecked after toggle: {item.IsChecked}");
-                
                 OnNoteChanged(); // Notify that the note has changed
                 e.Handled = true; // Prevent further event processing
             }
-            else
-            {
-                System.Diagnostics.Debug.WriteLine("Could not find NoteItem in DataContext");
-            }
-        }
-
-        // Keep the old method for reference but it shouldn't be called anymore
-        private void CheckBox_Click(object sender, RoutedEventArgs e)
-        {
-            System.Diagnostics.Debug.WriteLine("CheckBox_Click called!");
-            
-            if (sender is CheckBox checkBox)
-            {
-                System.Diagnostics.Debug.WriteLine($"CheckBox IsChecked: {checkBox.IsChecked}");
-                System.Diagnostics.Debug.WriteLine($"DataContext type: {checkBox.DataContext?.GetType().Name ?? "null"}");
-                
-                if (checkBox.DataContext is NoteItem item)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Item IsChecked before: {item.IsChecked}");
-                    // The checkbox state should be automatically updated through binding
-                    System.Diagnostics.Debug.WriteLine($"Item IsChecked after: {item.IsChecked}");
-                }
-            }
-            
-            OnNoteChanged(); // Notify that the note has changed
         }
 
         private void DeleteItem_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -321,6 +289,17 @@ namespace to_do_list.Views
                         OnNoteChanged();
                     }
                 }
+            }
+        }
+
+        private void CriticalButton_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is Button button && button.DataContext is NoteItem item)
+            {
+                // Toggle the IsCritical state
+                item.IsCritical = !item.IsCritical;
+                OnNoteChanged(); // Notify that the note has changed
+                e.Handled = true; // Prevent further event processing
             }
         }
     }
