@@ -141,11 +141,12 @@
                                 </Grid>
                                 
                                 <Button Grid.Column="3" 
-                                       Content="X"
+                                       Content="✕"
                                        Width="20"
                                        Height="20"
                                        Margin="5,0,0,0"
-                                       Click="DeleteItem_Click"
+                                       PreviewMouseLeftButtonDown="DeleteItem_PreviewMouseLeftButtonDown"
+                                       DataContext="{Binding}"
                                        Background="Transparent"
                                        BorderThickness="0"
                                        Foreground="Red"

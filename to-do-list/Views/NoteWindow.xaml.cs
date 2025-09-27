@@ -110,13 +110,94 @@ namespace to_do_list.Views
             OnNoteChanged(); // Notify that the note has changed
         }
 
+        private void DeleteItem_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            System.Diagnostics.Debug.WriteLine("DeleteItem_PreviewMouseLeftButtonDown called!");
+            
+            if (sender is FrameworkElement element && element.DataContext is NoteItem item)
+            {
+                System.Diagnostics.Debug.WriteLine($"Found NoteItem: {item.Text}");
+                System.Diagnostics.Debug.WriteLine($"Items count before removal: {_note.Items.Count}");
+                
+                bool removed = _note.Items.Remove(item);
+                System.Diagnostics.Debug.WriteLine($"Item removed successfully: {removed}");
+                System.Diagnostics.Debug.WriteLine($"Items count after removal: {_note.Items.Count}");
+                
+                OnNoteChanged();
+                e.Handled = true; // Prevent further event processing
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("Could not find NoteItem in DataContext");
+            }
+        }
+
+        // Keep the old method for reference but it shouldn't be called anymore
         private void DeleteItem_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button button && button.DataContext is NoteItem item)
+            System.Diagnostics.Debug.WriteLine("DeleteItem_Click called!");
+            
+            if (sender is FrameworkElement element)
             {
-                _note.Items.Remove(item);
-                OnNoteChanged(); // Notify that the note has changed
+                System.Diagnostics.Debug.WriteLine($"Sender is FrameworkElement: {element.GetType().Name}");
+                System.Diagnostics.Debug.WriteLine($"DataContext type: {element.DataContext?.GetType().Name ?? "null"}");
+                
+                if (element.DataContext is NoteItem item)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Found NoteItem: {item.Text}");
+                    System.Diagnostics.Debug.WriteLine($"Items count before removal: {_note.Items.Count}");
+                    
+                    bool removed = _note.Items.Remove(item);
+                    System.Diagnostics.Debug.WriteLine($"Item removed successfully: {removed}");
+                    System.Diagnostics.Debug.WriteLine($"Items count after removal: {_note.Items.Count}");
+                    
+                    OnNoteChanged();
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("DataContext is not NoteItem");
+                    
+                    // Let's try finding it through visual tree
+                    var parent = element.Parent;
+                    System.Diagnostics.Debug.WriteLine($"Parent type: {parent?.GetType().Name ?? "null"}");
+                    
+                    if (parent is Grid grid)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Grid DataContext: {grid.DataContext?.GetType().Name ?? "null"}");
+                        
+                        var border = grid.Parent as Border;
+                        if (border != null)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Border DataContext: {border.DataContext?.GetType().Name ?? "null"}");
+                            
+                            if (border.DataContext is NoteItem borderItem)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Found item through border: {borderItem.Text}");
+                                bool removed = _note.Items.Remove(borderItem);
+                                System.Diagnostics.Debug.WriteLine($"Item removed through border: {removed}");
+                                OnNoteChanged();
+                            }
+                        }
+                    }
+                }
             }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("Sender is not FrameworkElement");
+            }
+        }
+
+        // Helper method to find parent of specific type
+        private static T FindParent<T>(DependencyObject child) where T : DependencyObject
+        {
+            var parent = VisualTreeHelper.GetParent(child);
+            
+            while (parent != null && !(parent is T))
+            {
+                parent = VisualTreeHelper.GetParent(parent);
+            }
+            
+            return parent as T;
         }
 
         private void TextBlock_MouseDown(object sender, MouseButtonEventArgs e)
