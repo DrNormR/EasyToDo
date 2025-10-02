@@ -31,7 +31,7 @@ namespace to_do_list.Views
             NotesListBox.MouseDoubleClick += NotesListBox_MouseDoubleClick;
             StorageStatusLabel.MouseLeftButtonUp += StorageStatusLabel_Click;
             LocateFileButton.Click += LocateFileButton_Click;
-            ChangeStorageButton.Click += ChangeStorageButton_Click;
+            // Removed: ChangeStorageButton.Click += ChangeStorageButton_Click; (already in XAML)
 
             // Set up handlers to detect changes
             Notes.CollectionChanged += Notes_CollectionChanged;
@@ -61,20 +61,50 @@ namespace to_do_list.Views
 
         private void ChangeStorageButton_Click(object sender, RoutedEventArgs e)
         {
-            if (NoteStorage.ChangeStorageLocation())
+            System.Diagnostics.Debug.WriteLine("ChangeStorageButton_Click called");
+            
+            // Disable the button temporarily to prevent double-clicks
+            ChangeStorageButton.IsEnabled = false;
+            
+            try
             {
-                UpdateStorageStatus();
-                MessageBox.Show(
-                    "Storage location changed successfully!\n\nYour notes have been moved to the new location.",
-                    "Storage Changed",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                if (NoteStorage.ChangeStorageLocation())
+                {
+                    // Update status after successful change
+                    UpdateStorageStatus();
+                    
+                    // Show success message in the window instead of popup
+                    var (storageType, folderPath, isCloudStorage, isCustomPath) = NoteStorage.GetStorageInfo();
+                    ShowStatusMessage($"✅ Storage changed to {storageType}", TimeSpan.FromSeconds(4));
+                }
+            }
+            finally
+            {
+                // Re-enable the button after a short delay
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    ChangeStorageButton.IsEnabled = true;
+                }), System.Windows.Threading.DispatcherPriority.Background);
             }
         }
 
-        private void ChangeStorageLocation_Click(object sender, RoutedEventArgs e)
+        /// <summary>
+        /// Shows a temporary status message in the main window
+        /// </summary>
+        private void ShowStatusMessage(string message, TimeSpan duration)
         {
-            ChangeStorageButton_Click(sender, e);
+            StatusMessage.Text = message;
+            StatusMessage.Visibility = Visibility.Visible;
+            
+            // Hide the message after the specified duration
+            var timer = new System.Windows.Threading.DispatcherTimer();
+            timer.Interval = duration;
+            timer.Tick += (s, e) =>
+            {
+                StatusMessage.Visibility = Visibility.Collapsed;
+                timer.Stop();
+            };
+            timer.Start();
         }
 
         private void ResetToAutoStorage_Click(object sender, RoutedEventArgs e)
@@ -160,16 +190,12 @@ namespace to_do_list.Views
                           $"or use 'Change Storage Location' to choose a custom folder.";
             }
 
-            var result = MessageBox.Show(
+            // Just show information, don't auto-open file location
+            MessageBox.Show(
                 message,
                 "Storage Information",
-                MessageBoxButton.OKCancel,
+                MessageBoxButton.OK,
                 MessageBoxImage.Information);
-
-            if (result == MessageBoxResult.OK)
-            {
-                NoteStorage.OpenFileLocation();
-            }
         }
 
         private void CreateNoteButton_Click(object sender, RoutedEventArgs e)
@@ -277,6 +303,12 @@ namespace to_do_list.Views
         private void SaveNotes()
         {
             NoteStorage.SaveNotes(Notes);
+        }
+
+        private void ChangeStorageLocation_Click(object sender, RoutedEventArgs e)
+        {
+            System.Diagnostics.Debug.WriteLine("ChangeStorageLocation_Click called (from context menu)");
+            ChangeStorageButton_Click(sender, e);
         }
     }
 }

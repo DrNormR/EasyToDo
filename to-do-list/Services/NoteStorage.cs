@@ -12,6 +12,8 @@ namespace to_do_list.Services
     public static class NoteStorage
     {
         private static string _customSavePath;
+        private static bool _isChangingStorage = false; // Flag to prevent multiple dialogs
+        
         private static readonly string SettingsFilePath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "ToDoList", "settings.json");
@@ -134,11 +136,26 @@ namespace to_do_list.Services
             return null;
         }
 
+        private static DateTime _lastChangeAttempt = DateTime.MinValue;
+        private static readonly TimeSpan _minimumTimeBetweenChanges = TimeSpan.FromSeconds(1);
+
         /// <summary>
         /// Shows a folder selection dialog to choose storage location
         /// </summary>
         public static bool ChangeStorageLocation()
         {
+            System.Diagnostics.Debug.WriteLine($"ChangeStorageLocation() called at {DateTime.Now:HH:mm:ss.fff}");
+            
+            // Prevent multiple concurrent dialogs
+            if (_isChangingStorage)
+            {
+                System.Diagnostics.Debug.WriteLine("Storage change already in progress, ignoring request");
+                return false;
+            }
+
+            _isChangingStorage = true;
+            bool dialogShownSuccessfully = false;
+            
             try
             {
                 var saveDialog = new Microsoft.Win32.SaveFileDialog();
@@ -149,64 +166,67 @@ namespace to_do_list.Services
                 saveDialog.InitialDirectory = GetStorageFolder();
                 saveDialog.OverwritePrompt = false; // We'll handle this ourselves
 
+                System.Diagnostics.Debug.WriteLine("Showing SaveFileDialog...");
                 var result = saveDialog.ShowDialog();
+                dialogShownSuccessfully = true; // Dialog was shown successfully
+                
+                System.Diagnostics.Debug.WriteLine($"SaveFileDialog result: {result}");
+                
                 if (result == true)
                 {
                     var selectedPath = saveDialog.FileName;
+                    System.Diagnostics.Debug.WriteLine($"User selected: {selectedPath}");
                     
                     // Ensure the file has the correct name
                     var selectedFolder = Path.GetDirectoryName(selectedPath);
                     var newPath = Path.Combine(selectedFolder, "notes.json");
                     
-                    // Confirm with the user about the selected location
-                    var confirmMessage = $"?? Confirm Storage Location\n\n" +
-                                       $"Your notes will be stored in:\n{selectedFolder}\n\n" +
-                                       $"File: notes.json\n\n" +
-                                       $"Is this correct?";
-                    
-                    var confirmResult = System.Windows.MessageBox.Show(
-                        confirmMessage,
-                        "Confirm Storage Location",
-                        System.Windows.MessageBoxButton.YesNo,
-                        System.Windows.MessageBoxImage.Question);
-
-                    if (confirmResult == System.Windows.MessageBoxResult.Yes)
+                    // Try to move existing notes to new location
+                    if (File.Exists(SaveFilePath) && !File.Exists(newPath))
                     {
-                        // Try to move existing notes to new location
-                        if (File.Exists(SaveFilePath) && !File.Exists(newPath))
+                        try
                         {
-                            try
-                            {
-                                File.Copy(SaveFilePath, newPath);
-                                System.Diagnostics.Debug.WriteLine($"Copied notes from {SaveFilePath} to {newPath}");
-                            }
-                            catch (Exception ex)
-                            {
-                                System.Diagnostics.Debug.WriteLine($"Error copying notes: {ex.Message}");
-                                System.Windows.MessageBox.Show(
-                                    $"Failed to copy notes to new location:\n{ex.Message}\n\nStorage location not changed.",
-                                    "Copy Error",
-                                    System.Windows.MessageBoxButton.OK,
-                                    System.Windows.MessageBoxImage.Error);
-                                return false;
-                            }
+                            File.Copy(SaveFilePath, newPath);
+                            System.Diagnostics.Debug.WriteLine($"Copied notes from {SaveFilePath} to {newPath}");
                         }
-
-                        // Update the custom path
-                        _customSavePath = newPath;
-                        SaveSettings();
-                        
-                        System.Diagnostics.Debug.WriteLine($"Storage location changed to: {newPath}");
-                        return true;
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Error copying notes: {ex.Message}");
+                            return false;
+                        }
                     }
+
+                    // Update the custom path
+                    _customSavePath = newPath;
+                    SaveSettings();
+                    
+                    System.Diagnostics.Debug.WriteLine($"Storage location changed to: {newPath}");
+                    return true;
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("User cancelled the dialog");
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error showing folder dialog: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Exception in ChangeStorageLocation: {ex.Message}");
                 
-                // Fallback to the text input method if the dialog fails
-                return ShowFallbackFolderDialog();
+                // Only fallback if the dialog itself failed to show
+                if (!dialogShownSuccessfully)
+                {
+                    System.Diagnostics.Debug.WriteLine("Dialog failed to show, trying fallback...");
+                    return ShowFallbackFolderDialog();
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("Dialog showed but operation failed");
+                }
+            }
+            finally
+            {
+                _isChangingStorage = false; // Always reset the flag
+                System.Diagnostics.Debug.WriteLine($"ChangeStorageLocation completed at {DateTime.Now:HH:mm:ss.fff}, flag reset");
             }
 
             return false;
