@@ -1,8 +1,10 @@
 ﻿using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Windows;
+using System.Windows.Input;
 using to_do_list.Models;
 using to_do_list.Services;
 
@@ -27,12 +29,147 @@ namespace to_do_list.Views
             DeleteNoteButton.Click += DeleteNoteButton_Click;
             DuplicateNoteButton.Click += DuplicateNoteButton_Click;
             NotesListBox.MouseDoubleClick += NotesListBox_MouseDoubleClick;
+            StorageStatusLabel.MouseLeftButtonUp += StorageStatusLabel_Click;
+            LocateFileButton.Click += LocateFileButton_Click;
+            ChangeStorageButton.Click += ChangeStorageButton_Click;
 
             // Set up handlers to detect changes
             Notes.CollectionChanged += Notes_CollectionChanged;
 
             // Register window closing event to save notes
             Closing += MainWindow_Closing;
+
+            // Update storage status display
+            UpdateStorageStatus();
+        }
+
+        private void UpdateStorageStatus()
+        {
+            var (storageType, folderPath, isCloudStorage, isCustomPath) = NoteStorage.GetStorageInfo();
+            
+            string icon = storageType switch
+            {
+                "Dropbox" => "📦",
+                "OneDrive" => "☁️",
+                "Custom" => "📂",
+                _ => "💾"
+            };
+
+            StorageStatusLabel.Text = $"{icon} {NoteStorage.GetStorageLocationDescription()}";
+            StorageStatusLabel.ToolTip = $"Notes saved to: {NoteStorage.GetSaveLocation()}\n\nLeft-click for details, right-click for options";
+        }
+
+        private void ChangeStorageButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (NoteStorage.ChangeStorageLocation())
+            {
+                UpdateStorageStatus();
+                MessageBox.Show(
+                    "Storage location changed successfully!\n\nYour notes have been moved to the new location.",
+                    "Storage Changed",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+        }
+
+        private void ChangeStorageLocation_Click(object sender, RoutedEventArgs e)
+        {
+            ChangeStorageButton_Click(sender, e);
+        }
+
+        private void ResetToAutoStorage_Click(object sender, RoutedEventArgs e)
+        {
+            var result = MessageBox.Show(
+                "Reset to automatic storage detection?\n\nThis will move your notes back to the automatically detected location (Dropbox, OneDrive, or local storage).",
+                "Reset Storage",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                if (NoteStorage.ResetToAutoStorage())
+                {
+                    UpdateStorageStatus();
+                    MessageBox.Show(
+                        "Storage reset successfully!\n\nYour notes have been moved to the automatically detected location.",
+                        "Storage Reset",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
+                else
+                {
+                    MessageBox.Show(
+                        "Failed to reset storage location.\n\nPlease check that the target location is accessible.",
+                        "Reset Failed",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
+            }
+        }
+
+        private void LocateFileButton_Click(object sender, RoutedEventArgs e)
+        {
+            NoteStorage.OpenFileLocation();
+        }
+
+        private void OpenFileLocation_Click(object sender, RoutedEventArgs e)
+        {
+            NoteStorage.OpenFileLocation();
+        }
+
+        private void OpenStorageFolder_Click(object sender, RoutedEventArgs e)
+        {
+            NoteStorage.OpenStorageFolder();
+        }
+
+        private void StorageDetails_Click(object sender, RoutedEventArgs e)
+        {
+            ShowStorageDetails();
+        }
+
+        private void StorageStatusLabel_Click(object sender, MouseButtonEventArgs e)
+        {
+            ShowStorageDetails();
+        }
+
+        private void ShowStorageDetails()
+        {
+            var (storageType, folderPath, isCloudStorage, isCustomPath) = NoteStorage.GetStorageInfo();
+            var location = NoteStorage.GetSaveLocation();
+            
+            string message = $"📍 Storage Details\n\n" +
+                           $"Storage Type: {storageType}\n" +
+                           $"Custom Location: {(isCustomPath ? "✅ Yes" : "❌ No")}\n" +
+                           $"Cloud Sync: {(isCloudStorage ? "✅ Enabled" : "❌ Local only")}\n" +
+                           $"Folder: {folderPath}\n" +
+                           $"File: {Path.GetFileName(location)}\n\n";
+
+            if (isCustomPath)
+            {
+                message += $"📂 You've selected a custom storage location.\n" +
+                          $"Use 'Reset to Auto Storage' to return to automatic detection.";
+            }
+            else if (isCloudStorage)
+            {
+                message += $"✨ Your notes sync automatically across devices!\n" +
+                          $"Install EasyToDo on other devices to access your notes everywhere.";
+            }
+            else
+            {
+                message += $"💡 Install Dropbox or OneDrive to enable automatic syncing across devices,\n" +
+                          $"or use 'Change Storage Location' to choose a custom folder.";
+            }
+
+            var result = MessageBox.Show(
+                message,
+                "Storage Information",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Information);
+
+            if (result == MessageBoxResult.OK)
+            {
+                NoteStorage.OpenFileLocation();
+            }
         }
 
         private void CreateNoteButton_Click(object sender, RoutedEventArgs e)
