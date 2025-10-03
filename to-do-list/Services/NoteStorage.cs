@@ -4,10 +4,10 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Text.Json;
 using System.Windows.Media;
-using to_do_list.Converters;
-using to_do_list.Models;
+using EasyToDo.Converters;
+using EasyToDo.Models;
 
-namespace to_do_list.Services
+namespace EasyToDo.Services
 {
     public static class NoteStorage
     {

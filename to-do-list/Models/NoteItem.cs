@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace to_do_list.Models
+namespace EasyToDo.Models
 {
     public class NoteItem : INotifyPropertyChanged
     {

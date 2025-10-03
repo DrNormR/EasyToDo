@@ -1,11 +1,11 @@
-﻿<Window x:Class="to_do_list.Views.MainWindow"
+﻿<Window x:Class="EasyToDo.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:to_do_list.Views"
+        xmlns:local="clr-namespace:EasyToDo.Views"
         mc:Ignorable="d"
-        Title="To-Do List" Height="400" Width="250">
+        Title="EasyToDo" Height="400" Width="250">
     <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>

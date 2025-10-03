@@ -5,10 +5,10 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Input;
-using to_do_list.Models;
-using to_do_list.Services;
+using EasyToDo.Models;
+using EasyToDo.Services;
 
-namespace to_do_list.Views
+namespace EasyToDo.Views
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml

@@ -2,8 +2,9 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
+using EasyToDo.Models;
 
-namespace to_do_list.Models
+namespace EasyToDo.Models
 {
     public class Note : INotifyPropertyChanged
     {

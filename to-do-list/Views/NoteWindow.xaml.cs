@@ -4,9 +4,9 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Linq;
-using to_do_list.Models;
+using EasyToDo.Models;
 
-namespace to_do_list.Views
+namespace EasyToDo.Views
 {
     public partial class NoteWindow : Window
     {

@@ -2,7 +2,7 @@
 using System.Data;
 using System.Windows;
 
-namespace to_do_list
+namespace EasyToDo
 {
     /// <summary>
     /// Interaction logic for App.xaml

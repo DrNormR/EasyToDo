@@ -2,7 +2,7 @@ using System;
 using System.Text.Json;
 using System.Windows.Media;
 
-namespace to_do_list.Converters
+namespace EasyToDo.Converters
 {
     public class ColorJsonConverter : System.Text.Json.Serialization.JsonConverter<Color>
     {
