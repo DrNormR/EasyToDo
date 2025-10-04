@@ -125,11 +125,13 @@
                                        FontSize="12"
                                        FontFamily="Segoe UI Emoji"
                                        VerticalAlignment="Center"
-                                       ToolTip="Mark as critical">
+                                       ToolTip="Mark as critical"
+                                       Foreground="Red">
                                     <Button.Style>
                                         <Style TargetType="Button">
                                             <Setter Property="Opacity" Value="0.3"/>
                                             <Setter Property="Visibility" Value="Hidden"/>
+                                            <Setter Property="Foreground" Value="Red"/>
                                             <Style.Triggers>
                                                 <!-- Hide for headings -->
                                                 <DataTrigger Binding="{Binding IsHeading}" Value="True">
@@ -145,6 +147,7 @@
                                                 <DataTrigger Binding="{Binding IsCritical}" Value="True">
                                                     <Setter Property="Visibility" Value="Visible"/>
                                                     <Setter Property="Opacity" Value="1.0"/>
+                                                    <Setter Property="Foreground" Value="DarkRed"/>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
@@ -184,7 +187,8 @@
                                     
                                     <TextBlock Text="{Binding Text}" 
                                              VerticalAlignment="Center"
-                                             Cursor="IBeam">
+                                             Cursor="IBeam"
+                                             FontFamily="Segoe UI, Segoe UI Emoji">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
                                                 <Style.Triggers>
@@ -211,7 +215,8 @@
                                              LostFocus="EditTextBox_LostFocus"
                                              KeyDown="EditTextBox_KeyDown"
                                              Background="Transparent"
-                                             BorderThickness="0">
+                                             BorderThickness="0"
+                                             FontFamily="Segoe UI, Segoe UI Emoji">
                                         <TextBox.Style>
                                             <Style TargetType="TextBox">
                                                 <Style.Triggers>
@@ -302,7 +307,8 @@
                      KeyDown="NewItemTextBox_KeyDown"
                      GotFocus="NewItemTextBox_GotFocus"
                      LostFocus="NewItemTextBox_LostFocus"
-                     Text="Type here to add a new item..."/>
+                     Text="Type here to add a new item..."
+                     FontFamily="Segoe UI, Segoe UI Emoji"/>
         </Grid>
     </Grid>
 </Window>
