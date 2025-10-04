@@ -15,7 +15,13 @@
     {
         "Entry"
         {
-        "MsmKey" = "8:_23A5C5D762B74E0CA3149597699EC364"
+        "MsmKey" = "8:_A72E4166F3AA481B8A612FCE28A83484"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_E184280F9AEA4DBCB3A86BAF692712C3"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -37,13 +43,21 @@
         "PrivateKeyFile" = "8:"
         "TimeStampServer" = "8:"
         "InstallerBootstrapper" = "3:2"
+            "BootstrapperCfg:{63ACBE69-63AA-4F98-B2B6-99F9E24495F2}"
+            {
+            "Enabled" = "11:TRUE"
+            "PromptEnabled" = "11:TRUE"
+            "PrerequisitesLocation" = "2:1"
+            "Url" = "8:"
+            "ComponentsUrl" = "8:"
+            }
         }
         "Release"
         {
         "DisplayName" = "8:Release"
         "IsDebugOnly" = "11:FALSE"
         "IsReleaseOnly" = "11:TRUE"
-        "OutputFilename" = "8:Release\\EasyToDoSetup.msi"
+        "OutputFilename" = "8:Release\\EasyToDo.msi"
         "PackageFilesAs" = "3:2"
         "PackageFileSize" = "3:-2147483648"
         "CabType" = "3:1"
@@ -53,6 +67,22 @@
         "PrivateKeyFile" = "8:"
         "TimeStampServer" = "8:"
         "InstallerBootstrapper" = "3:2"
+            "BootstrapperCfg:{63ACBE69-63AA-4F98-B2B6-99F9E24495F2}"
+            {
+            "Enabled" = "11:TRUE"
+            "PromptEnabled" = "11:TRUE"
+            "PrerequisitesLocation" = "2:1"
+            "Url" = "8:"
+            "ComponentsUrl" = "8:"
+                "Items"
+                {
+                    "{EDC2488A-8267-493A-A98E-7D9C3B36CDF3}:.NETFramework,Version=v4.7.2"
+                    {
+                    "Name" = "8:Microsoft .NET Framework 4.7.2 (x86 and x64)"
+                    "ProductCode" = "8:.NETFramework,Version=v4.7.2"
+                    }
+                }
+            }
         }
     }
     "Deployable"
@@ -70,10 +100,40 @@
         {
             "LaunchCondition"
             {
+                "{A06ECF26-33A3-4562-8140-9B0E340D4F24}:_96881760B33347CC94BB0AFC6246E7A1"
+                {
+                "Name" = "8:.NET Core"
+                "Message" = "8:[VSDNETCOREMSG]"
+                "AllowLaterVersions" = "11:FALSE"
+                "InstallUrl" = "8:https://dotnet.microsoft.com/download/dotnet-core/[NetCoreVerMajorDotMinor]"
+                "IsNETCore" = "11:TRUE"
+                "Architecture" = "2:0"
+                "Runtime" = "2:0"
+                }
             }
         }
         "File"
         {
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_E184280F9AEA4DBCB3A86BAF692712C3"
+            {
+            "SourcePath" = "8:..\\EasyToDo\\Resources\\post-it-orange.ico"
+            "TargetName" = "8:post-it-orange.ico"
+            "Tag" = "8:"
+            "Folder" = "8:_A6914C7D1F4E493FB64B7CBC412C2FD8"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
         }
         "FileType"
         {
@@ -104,7 +164,7 @@
             }
             "{3C67513D-01DD-4637-8A68-80971EB9504F}:_A6914C7D1F4E493FB64B7CBC412C2FD8"
             {
-            "DefaultLocation" = "8:[ProgramFilesFolder][Manufacturer]\\[ProductName]"
+            "DefaultLocation" = "8:[ProgramFilesFolder]EasyToDo\\"
             "Name" = "8:#1925"
             "AlwaysCreate" = "11:FALSE"
             "Condition" = "8:"
@@ -129,9 +189,9 @@
         "Product"
         {
         "Name" = "8:Microsoft Visual Studio"
-        "ProductName" = "8:EasyToDoSetup"
+        "ProductName" = "8:EasyToDo"
         "ProductCode" = "8:{676E4EF1-DA70-48FA-A617-5123CB0BCDDD}"
-        "PackageCode" = "8:{BC951A43-130E-48BB-B4E9-890D7709D96B}"
+        "PackageCode" = "8:{5AC1B050-1BEA-4DA2-BA88-4CEC66CB49B8}"
         "UpgradeCode" = "8:{8B755D46-71BE-4143-A01F-FBDBB5540781}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
@@ -139,12 +199,12 @@
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
         "ProductVersion" = "8:1.0.0"
-        "Manufacturer" = "8:robertlnorman@live.com"
+        "Manufacturer" = "8:NormSoft"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
-        "Title" = "8:EasyToDoSetup"
+        "Title" = "8:EasyToDo"
         "Subject" = "8:"
-        "ARPCONTACT" = "8:robertlnorman@live.com"
+        "ARPCONTACT" = "8:DrNormR"
         "Keywords" = "8:"
         "ARPCOMMENTS" = "8:"
         "ARPURLINFOABOUT" = "8:"
@@ -251,6 +311,20 @@
         }
         "Shortcut"
         {
+            "{970C0BB2-C7D0-45D7-ABFA-7EC378858BC0}:_C1AE9CD982D044EFBD1E8EF2676B3454"
+            {
+            "Name" = "8:EasyToDo"
+            "Arguments" = "8:"
+            "Description" = "8:"
+            "ShowCmd" = "3:1"
+            "IconIndex" = "3:0"
+            "Transitive" = "11:FALSE"
+            "Target" = "8:_A72E4166F3AA481B8A612FCE28A83484"
+            "Folder" = "8:_53E20C6E2C484DB2984C970E138C7047"
+            "WorkingFolder" = "8:_A6914C7D1F4E493FB64B7CBC412C2FD8"
+            "Icon" = "8:_E184280F9AEA4DBCB3A86BAF692712C3"
+            "Feature" = "8:"
+            }
         }
         "UserInterface"
         {
@@ -650,7 +724,7 @@
         }
         "ProjectOutput"
         {
-            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_23A5C5D762B74E0CA3149597699EC364"
+            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_A72E4166F3AA481B8A612FCE28A83484"
             {
             "SourcePath" = "8:..\\EasyToDo\\obj\\Release\\net8.0-windows\\apphost.exe"
             "TargetName" = "8:"

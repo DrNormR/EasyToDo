@@ -3,7 +3,11 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Note" Height="400" Width="300"
         WindowStyle="SingleBorderWindow"
-        ResizeMode="CanResizeWithGrip">
+        ResizeMode="CanResizeWithGrip"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="Auto"
+        UseLayoutRounding="True"
+        FontFamily="Segoe UI Emoji, Segoe UI, Arial Unicode MS">
     <Window.Resources>
         <Style x:Key="CircleCheckBox" TargetType="CheckBox">
             <Setter Property="Template">
@@ -188,7 +192,10 @@
                                     <TextBlock Text="{Binding Text}" 
                                              VerticalAlignment="Center"
                                              Cursor="IBeam"
-                                             FontFamily="Segoe UI, Segoe UI Emoji">
+                                             FontFamily="Segoe UI Emoji, Segoe UI, Arial Unicode MS"
+                                             TextOptions.TextFormattingMode="Display"
+                                             TextOptions.TextRenderingMode="Auto"
+                                             UseLayoutRounding="True">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
                                                 <Style.Triggers>
@@ -216,7 +223,10 @@
                                              KeyDown="EditTextBox_KeyDown"
                                              Background="Transparent"
                                              BorderThickness="0"
-                                             FontFamily="Segoe UI, Segoe UI Emoji">
+                                             FontFamily="Segoe UI Emoji, Segoe UI, Arial Unicode MS"
+                                             TextOptions.TextFormattingMode="Display"
+                                             TextOptions.TextRenderingMode="Auto"
+                                             UseLayoutRounding="True">
                                         <TextBox.Style>
                                             <Style TargetType="TextBox">
                                                 <Style.Triggers>
@@ -308,7 +318,10 @@
                      GotFocus="NewItemTextBox_GotFocus"
                      LostFocus="NewItemTextBox_LostFocus"
                      Text="Type here to add a new item..."
-                     FontFamily="Segoe UI, Segoe UI Emoji"/>
+                     FontFamily="Segoe UI Emoji, Segoe UI, Arial Unicode MS"
+                     TextOptions.TextFormattingMode="Display"
+                     TextOptions.TextRenderingMode="Auto"
+                     UseLayoutRounding="True"/>
         </Grid>
     </Grid>
 </Window>
