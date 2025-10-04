@@ -8,6 +8,7 @@ namespace EasyToDo.Models
         private string _text;
         private bool _isChecked;
         private bool _isCritical;
+        private bool _isHeading;
 
         public string Text
         {
@@ -44,6 +45,26 @@ namespace EasyToDo.Models
                 {
                     _isCritical = value;
                     OnPropertyChanged();
+                }
+            }
+        }
+
+        public bool IsHeading
+        {
+            get => _isHeading;
+            set
+            {
+                if (_isHeading != value)
+                {
+                    _isHeading = value;
+                    OnPropertyChanged();
+                    
+                    // Reset checked and critical state for headings
+                    if (_isHeading)
+                    {
+                        IsChecked = false;
+                        IsCritical = false;
+                    }
                 }
             }
         }

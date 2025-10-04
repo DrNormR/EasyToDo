@@ -16,7 +16,7 @@ namespace EasyToDo.Services
         
         private static readonly string SettingsFilePath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "ToDoList", "settings.json");
+            "EasyToDo", "settings.json");
         
         private static readonly JsonSerializerOptions Options = new JsonSerializerOptions
         {
@@ -58,7 +58,7 @@ namespace EasyToDo.Services
             // Fallback to local storage
             var localPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "ToDoList", "notes.json");
+                "EasyToDo", "notes.json");
             
             System.Diagnostics.Debug.WriteLine($"Using local storage: {localPath}");
             return localPath;
@@ -611,7 +611,7 @@ namespace EasyToDo.Services
             {
                 var oldPath = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    "ToDoList", "notes.json");
+                    "EasyToDo", "notes.json");
 
                 if (File.Exists(oldPath) && !File.Exists(SaveFilePath))
                 {

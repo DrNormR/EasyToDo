@@ -220,7 +220,13 @@ namespace EasyToDo.Views
                 {
                     Title = note.Title + " (Copy)",
                     BackgroundColor = note.BackgroundColor,
-                    Items = new ObservableCollection<NoteItem>(note.Items.Select(i => new NoteItem { Text = i.Text, IsChecked = i.IsChecked, IsCritical = i.IsCritical }))
+                    Items = new ObservableCollection<NoteItem>(note.Items.Select(i => new NoteItem 
+                    { 
+                        Text = i.Text, 
+                        IsChecked = i.IsChecked, 
+                        IsCritical = i.IsCritical,
+                        IsHeading = i.IsHeading
+                    }))
                 };
                 Notes.Add(copy);
             }

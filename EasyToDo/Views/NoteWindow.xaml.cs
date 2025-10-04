@@ -15,6 +15,7 @@ namespace EasyToDo.Views
         private Point _startPoint;
         private bool _isDragging = false;
         private NoteItem _draggedItem;
+        private bool _nextItemIsHeading = false;
 
         // Event to notify when a note changes
         public event EventHandler NoteChanged;
@@ -51,27 +52,95 @@ namespace EasyToDo.Views
             }
         }
 
+        private void HeadingButton_Click(object sender, RoutedEventArgs e)
+        {
+            _nextItemIsHeading = !_nextItemIsHeading;
+            UpdateHeadingButtonAppearance();
+            
+            // Focus the text box when activating heading mode
+            if (_nextItemIsHeading)
+            {
+                NewItemTextBox.Focus();
+            }
+        }
+
         private void NewItemTextBox_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter && sender is TextBox textBox)
             {
                 if (!string.IsNullOrWhiteSpace(textBox.Text) && 
-                    textBox.Text != "Type here to add a new item...")
+                    textBox.Text != "Type here to add a new item..." &&
+                    textBox.Text != "Type heading text...")
                 {
-                    _note.Items.Add(new NoteItem { Text = textBox.Text, IsChecked = false, IsCritical = false });
+                    var newItem = new NoteItem 
+                    { 
+                        Text = textBox.Text, 
+                        IsChecked = false, 
+                        IsCritical = false,
+                        IsHeading = _nextItemIsHeading
+                    };
+                    
+                    _note.Items.Add(newItem);
                     textBox.Text = string.Empty;
+                    
+                    // Reset heading mode after adding item
+                    if (_nextItemIsHeading)
+                    {
+                        _nextItemIsHeading = false;
+                        UpdateHeadingButtonAppearance();
+                    }
+                    
                     e.Handled = true; // Prevent the beep sound
                     OnNoteChanged(); // Notify that the note has changed
+                }
+            }
+            else if (e.Key == Key.Escape && _nextItemIsHeading)
+            {
+                // Cancel heading mode on Escape
+                _nextItemIsHeading = false;
+                UpdateHeadingButtonAppearance();
+            }
+        }
+
+        private void UpdateHeadingButtonAppearance()
+        {
+            if (_nextItemIsHeading)
+            {
+                HeadingButton.Background = new SolidColorBrush(Colors.LightBlue);
+                HeadingButton.BorderBrush = new SolidColorBrush(Colors.DarkBlue);
+                HeadingButton.Opacity = 1.0;
+                HeadingButton.ToolTip = "Next item will be a heading (click to cancel)";
+                
+                // Update placeholder text
+                if (NewItemTextBox.Text == "Type here to add a new item...")
+                {
+                    NewItemTextBox.Text = "Type heading text...";
+                }
+            }
+            else
+            {
+                HeadingButton.Background = new SolidColorBrush(Colors.Transparent);
+                HeadingButton.BorderBrush = new SolidColorBrush(Colors.Gray);
+                HeadingButton.Opacity = 0.6;
+                HeadingButton.ToolTip = "Add heading";
+                
+                // Reset placeholder text
+                if (NewItemTextBox.Text == "Type heading text...")
+                {
+                    NewItemTextBox.Text = "Type here to add a new item...";
                 }
             }
         }
 
         private void NewItemTextBox_GotFocus(object sender, RoutedEventArgs e)
         {
-            if (sender is TextBox textBox && textBox.Text == "Type here to add a new item...")
+            if (sender is TextBox textBox)
             {
-                textBox.Text = string.Empty;
-                textBox.FontStyle = FontStyles.Normal;
+                if (textBox.Text == "Type here to add a new item..." || textBox.Text == "Type heading text...")
+                {
+                    textBox.Text = string.Empty;
+                    textBox.FontStyle = FontStyles.Normal;
+                }
             }
         }
 
@@ -79,7 +148,14 @@ namespace EasyToDo.Views
         {
             if (sender is TextBox textBox && string.IsNullOrWhiteSpace(textBox.Text))
             {
-                textBox.Text = "Type here to add a new item...";
+                if (_nextItemIsHeading)
+                {
+                    textBox.Text = "Type heading text...";
+                }
+                else
+                {
+                    textBox.Text = "Type here to add a new item...";
+                }
                 textBox.FontStyle = FontStyles.Italic;
             }
         }
@@ -108,9 +184,12 @@ namespace EasyToDo.Views
         {
             if (sender is CheckBox checkBox && checkBox.DataContext is NoteItem item)
             {
-                // Toggle the IsChecked state manually
-                item.IsChecked = !item.IsChecked;
-                OnNoteChanged(); // Notify that the note has changed
+                // Only allow checking for non-heading items
+                if (!item.IsHeading)
+                {
+                    item.IsChecked = !item.IsChecked;
+                    OnNoteChanged(); // Notify that the note has changed
+                }
                 e.Handled = true; // Prevent further event processing
             }
         }
@@ -296,9 +375,12 @@ namespace EasyToDo.Views
         {
             if (sender is Button button && button.DataContext is NoteItem item)
             {
-                // Toggle the IsCritical state
-                item.IsCritical = !item.IsCritical;
-                OnNoteChanged(); // Notify that the note has changed
+                // Only allow critical marking for non-heading items
+                if (!item.IsHeading)
+                {
+                    item.IsCritical = !item.IsCritical;
+                    OnNoteChanged(); // Notify that the note has changed
+                }
                 e.Handled = true; // Prevent further event processing
             }
         }

@@ -91,6 +91,7 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 
+                                <!-- Drag Handle -->
                                 <TextBlock Grid.Column="0"
                                          Text="⋮⋮"
                                          FontSize="14"
@@ -111,6 +112,7 @@
                                     </TextBlock.Style>
                                 </TextBlock>
 
+                                <!-- Critical Button - Hidden for headings -->
                                 <Button Grid.Column="1" 
                                        Content="🚨"
                                        Width="18"
@@ -129,9 +131,17 @@
                                             <Setter Property="Opacity" Value="0.3"/>
                                             <Setter Property="Visibility" Value="Hidden"/>
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsMouseOver, ElementName=ItemBorder}" Value="True">
-                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                <!-- Hide for headings -->
+                                                <DataTrigger Binding="{Binding IsHeading}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
                                                 </DataTrigger>
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding IsMouseOver, ElementName=ItemBorder}" Value="True"/>
+                                                        <Condition Binding="{Binding IsHeading}" Value="False"/>
+                                                    </MultiDataTrigger.Conditions>
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </MultiDataTrigger>
                                                 <DataTrigger Binding="{Binding IsCritical}" Value="True">
                                                     <Setter Property="Visibility" Value="Visible"/>
                                                     <Setter Property="Opacity" Value="1.0"/>
@@ -141,15 +151,37 @@
                                     </Button.Style>
                                 </Button>
 
+                                <!-- Checkbox - Hidden for headings -->
                                 <CheckBox Grid.Column="2" 
                                          IsChecked="{Binding IsChecked, Mode=TwoWay}" 
                                          Margin="0,0,5,0" 
                                          PreviewMouseLeftButtonDown="CheckBox_PreviewMouseLeftButtonDown"
                                          DataContext="{Binding}"
-                                         VerticalAlignment="Center"
-                                         Style="{StaticResource CircleCheckBox}"/>
+                                         VerticalAlignment="Center">
+                                    <CheckBox.Style>
+                                        <Style TargetType="CheckBox" BasedOn="{StaticResource CircleCheckBox}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsHeading}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </CheckBox.Style>
+                                </CheckBox>
 
+                                <!-- Text Content with different margins for headings -->
                                 <Grid Grid.Column="3" Background="Transparent" MouseDown="TextBlock_MouseDown">
+                                    <Grid.Style>
+                                        <Style TargetType="Grid">
+                                            <Setter Property="Margin" Value="0"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsHeading}" Value="True">
+                                                    <Setter Property="Margin" Value="5,0,0,0"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Grid.Style>
+                                    
                                     <TextBlock Text="{Binding Text}" 
                                              VerticalAlignment="Center"
                                              Cursor="IBeam">
@@ -163,6 +195,12 @@
                                                         <Setter Property="FontWeight" Value="Bold"/>
                                                         <Setter Property="Foreground" Value="#FF8B0000"/>
                                                     </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsHeading}" Value="True">
+                                                        <Setter Property="FontWeight" Value="Bold"/>
+                                                        <Setter Property="FontSize" Value="14"/>
+                                                        <Setter Property="Foreground" Value="#FF333333"/>
+                                                        <Setter Property="Margin" Value="0,5,0,2"/>
+                                                    </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
                                         </TextBlock.Style>
@@ -173,9 +211,21 @@
                                              LostFocus="EditTextBox_LostFocus"
                                              KeyDown="EditTextBox_KeyDown"
                                              Background="Transparent"
-                                             BorderThickness="0"/>
+                                             BorderThickness="0">
+                                        <TextBox.Style>
+                                            <Style TargetType="TextBox">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsHeading}" Value="True">
+                                                        <Setter Property="FontWeight" Value="Bold"/>
+                                                        <Setter Property="FontSize" Value="14"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBox.Style>
+                                    </TextBox>
                                 </Grid>
                                 
+                                <!-- Delete Button -->
                                 <Button Grid.Column="4" 
                                        Content="✕"
                                        Width="20"
@@ -209,14 +259,50 @@
 
         <Separator Grid.Row="3" Margin="0,5" Opacity="0.5"/>
         
-        <TextBox x:Name="NewItemTextBox" 
-                 Grid.Row="4"
-                 Margin="25,5,0,0"
-                 Background="Transparent"
-                 BorderThickness="0"
-                 KeyDown="NewItemTextBox_KeyDown"
-                 GotFocus="NewItemTextBox_GotFocus"
-                 LostFocus="NewItemTextBox_LostFocus"
-                 Text="Type here to add a new item..."/>
+        <!-- Input row with heading button -->
+        <Grid Grid.Row="4" Margin="0,5,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            
+            <!-- Heading Button -->
+            <Button x:Name="HeadingButton"
+                    Grid.Column="0"
+                    Content="H"
+                    Width="20"
+                    Height="20"
+                    Margin="0,0,5,0"
+                    ToolTip="Add heading"
+                    Click="HeadingButton_Click"
+                    Background="Transparent"
+                    BorderThickness="1"
+                    BorderBrush="Gray"
+                    FontWeight="Bold"
+                    FontSize="12"
+                    VerticalAlignment="Center">
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="Opacity" Value="0.6"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Opacity" Value="1.0"/>
+                                <Setter Property="BorderBrush" Value="DarkGray"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+            
+            <TextBox x:Name="NewItemTextBox" 
+                     Grid.Column="2"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     KeyDown="NewItemTextBox_KeyDown"
+                     GotFocus="NewItemTextBox_GotFocus"
+                     LostFocus="NewItemTextBox_LostFocus"
+                     Text="Type here to add a new item..."/>
+        </Grid>
     </Grid>
 </Window>
