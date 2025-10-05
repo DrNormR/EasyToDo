@@ -1,9 +1,11 @@
-﻿using System.Collections.ObjectModel;
+﻿using System;
+using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using EasyToDo.Models;
 using EasyToDo.Services;
@@ -29,9 +31,6 @@ namespace EasyToDo.Views
             DeleteNoteButton.Click += DeleteNoteButton_Click;
             DuplicateNoteButton.Click += DuplicateNoteButton_Click;
             NotesListBox.MouseDoubleClick += NotesListBox_MouseDoubleClick;
-            StorageStatusLabel.MouseLeftButtonUp += StorageStatusLabel_Click;
-            LocateFileButton.Click += LocateFileButton_Click;
-            // Removed: ChangeStorageButton.Click += ChangeStorageButton_Click; (already in XAML)
 
             // Set up handlers to detect changes
             Notes.CollectionChanged += Notes_CollectionChanged;
@@ -55,56 +54,67 @@ namespace EasyToDo.Views
                 _ => "💾"
             };
 
-            StorageStatusLabel.Text = $"{icon} {NoteStorage.GetStorageLocationDescription()}";
-            StorageStatusLabel.ToolTip = $"Notes saved to: {NoteStorage.GetSaveLocation()}\n\nLeft-click for storage details\nRight-click for backup management";
-        }
-
-        private void ChangeStorageButton_Click(object sender, RoutedEventArgs e)
-        {
-            System.Diagnostics.Debug.WriteLine("ChangeStorageButton_Click called");
-            
-            // Disable the button temporarily to prevent double-clicks
-            ChangeStorageButton.IsEnabled = false;
-            
-            try
+            // Update the menu button icon (only if it exists)
+            if (StorageMenuIcon != null)
             {
-                if (NoteStorage.ChangeStorageLocation())
-                {
-                    // Update status after successful change
-                    UpdateStorageStatus();
-                    
-                    // Show success message in the window instead of popup
-                    var (storageType, folderPath, isCloudStorage, isCustomPath) = NoteStorage.GetStorageInfo();
-                    ShowStatusMessage($"✅ Storage changed to {storageType}", TimeSpan.FromSeconds(4));
-                }
+                StorageMenuIcon.Text = icon;
             }
-            finally
+            
+            // Update the status label (now just informational)
+            if (StorageStatusLabel != null)
             {
-                // Re-enable the button after a short delay
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    ChangeStorageButton.IsEnabled = true;
-                }), System.Windows.Threading.DispatcherPriority.Background);
+                StorageStatusLabel.Text = $"{icon} {NoteStorage.GetStorageLocationDescription()}";
+                StorageStatusLabel.ToolTip = $"Current storage: {NoteStorage.GetSaveLocation()}";
             }
         }
 
-        /// <summary>
-        /// Shows a temporary status message in the main window
-        /// </summary>
-        private void ShowStatusMessage(string message, TimeSpan duration)
+        private void StorageMenuButton_Click(object sender, RoutedEventArgs e)
         {
-            StatusMessage.Text = message;
-            StatusMessage.Visibility = Visibility.Visible;
-            
-            // Hide the message after the specified duration
-            var timer = new System.Windows.Threading.DispatcherTimer();
-            timer.Interval = duration;
-            timer.Tick += (s, e) =>
+            // Open the context menu on left-click
+            if (sender is Button button && button.ContextMenu != null)
             {
-                StatusMessage.Visibility = Visibility.Collapsed;
-                timer.Stop();
-            };
-            timer.Start();
+                button.ContextMenu.PlacementTarget = button;
+                button.ContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+                button.ContextMenu.IsOpen = true;
+            }
+        }
+
+        private void CreateBackupNow_Click(object sender, RoutedEventArgs e)
+        {
+            if (NoteStorage.CreateBackupNow())
+            {
+                ShowStatusMessage("✅ Backup created successfully!", TimeSpan.FromSeconds(3));
+            }
+            else
+            {
+                ShowStatusMessage("❌ Failed to create backup", TimeSpan.FromSeconds(3));
+            }
+        }
+
+        private void ManageBackups_Click(object sender, RoutedEventArgs e)
+        {
+            ShowBackupMenu();
+        }
+
+        private void RestoreFromBackup_Click(object sender, RoutedEventArgs e)
+        {
+            var backups = NoteStorage.GetAvailableBackups();
+            
+            if (backups.Count == 0)
+            {
+                MessageBox.Show(
+                    "📋 No Backups Available\n\n" +
+                    "No backup files found. Backups are created automatically daily and when the app closes.\n\n" +
+                    "Use 'Create Backup Now' to create your first backup.",
+                    "No Backups",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            // For now, restore from the most recent backup
+            // In a full implementation, you'd show a file picker
+            RestoreFromBackup(backups[0]);
         }
 
         private void ResetToAutoStorage_Click(object sender, RoutedEventArgs e)
@@ -135,16 +145,6 @@ namespace EasyToDo.Views
                         MessageBoxImage.Warning);
                 }
             }
-        }
-
-        private void LocateFileButton_Click(object sender, RoutedEventArgs e)
-        {
-            NoteStorage.OpenFileLocation();
-        }
-
-        private void OpenFileLocation_Click(object sender, RoutedEventArgs e)
-        {
-            NoteStorage.OpenFileLocation();
         }
 
         private void OpenStorageFolder_Click(object sender, RoutedEventArgs e)
@@ -178,7 +178,7 @@ namespace EasyToDo.Views
             
             string backupInfo = lastBackup != DateTime.MinValue 
                 ? $"Last backup: {lastBackup:MMM dd, yyyy 'at' HH:mm}\nBackups available: {backupCount}\nNext backup: {nextBackup}"
-                : "No backups created yet\nFirst backup: When you close the app or tomorrow";
+                : "No backups created yet\nFirst backup will be created automatically";
             
             string message = $"📍 Storage Details\n\n" +
                            $"Storage Type: {storageType}\n" +
@@ -205,30 +205,65 @@ namespace EasyToDo.Views
                           $"or use 'Change Storage Location' to choose a custom folder.";
             }
 
-            // Show storage details with backup options
-            var result = MessageBox.Show(
-                message + $"\n\n📋 Would you like to create a backup now?",
+            MessageBox.Show(
+                message,
                 "Storage Information",
-                MessageBoxButton.YesNo,
+                MessageBoxButton.OK,
                 MessageBoxImage.Information);
-
-            if (result == MessageBoxResult.Yes)
-            {
-                if (NoteStorage.CreateBackupNow())
-                {
-                    ShowStatusMessage("✅ Backup created successfully!", TimeSpan.FromSeconds(3));
-                }
-                else
-                {
-                    ShowStatusMessage("❌ Failed to create backup", TimeSpan.FromSeconds(3));
-                }
-            }
         }
 
         private void ChangeStorageLocation_Click(object sender, RoutedEventArgs e)
         {
             System.Diagnostics.Debug.WriteLine("ChangeStorageLocation_Click called (from context menu)");
-            ChangeStorageButton_Click(sender, e);
+            
+            // Disable the menu temporarily to prevent double-clicks
+            if (sender is MenuItem menuItem)
+            {
+                menuItem.IsEnabled = false;
+            }
+            
+            try
+            {
+                if (NoteStorage.ChangeStorageLocation())
+                {
+                    // Update status after successful change
+                    UpdateStorageStatus();
+                    
+                    // Show success message in the window instead of popup
+                    var (storageType, folderPath, isCloudStorage, isCustomPath) = NoteStorage.GetStorageInfo();
+                    ShowStatusMessage($"✅ Storage changed to {storageType}", TimeSpan.FromSeconds(4));
+                }
+            }
+            finally
+            {
+                // Re-enable the menu item after a short delay
+                if (sender is MenuItem menu)
+                {
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        menu.IsEnabled = true;
+                    }), System.Windows.Threading.DispatcherPriority.Background);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Shows a temporary status message in the main window
+        /// </summary>
+        private void ShowStatusMessage(string message, TimeSpan duration)
+        {
+            StatusMessage.Text = message;
+            StatusMessage.Visibility = Visibility.Visible;
+            
+            // Hide the message after the specified duration
+            var timer = new System.Windows.Threading.DispatcherTimer();
+            timer.Interval = duration;
+            timer.Tick += (s, e) =>
+            {
+                StatusMessage.Visibility = Visibility.Collapsed;
+                timer.Stop();
+            };
+            timer.Start();
         }
 
         private void ShowBackupMenu()
