@@ -302,13 +302,14 @@ namespace EasyToDo.Views
 
         private void MainWindow_Closing(object sender, CancelEventArgs e)
         {
-            // Save all notes when the application is closing
-            SaveNotes();
+            // Force immediate save when application is closing
+            NoteStorage.SaveImmediately(Notes);
         }
 
         private void SaveNotes()
         {
-            NoteStorage.SaveNotes(Notes);
+            // Use the new throttled auto-save system
+            NoteStorage.RequestSave(Notes);
         }
 
         private void ChangeStorageLocation_Click(object sender, RoutedEventArgs e)

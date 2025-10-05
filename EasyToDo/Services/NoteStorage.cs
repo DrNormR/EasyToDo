@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Text.Json;
 using System.Windows.Media;
+using System.Windows.Threading;
 using EasyToDo.Converters;
 using EasyToDo.Models;
 
@@ -13,6 +14,11 @@ namespace EasyToDo.Services
     {
         private static string _customSavePath;
         private static bool _isChangingStorage = false; // Flag to prevent multiple dialogs
+        
+        // Auto-save throttling
+        private static DispatcherTimer _saveTimer;
+        private static bool _hasPendingSave = false;
+        private static readonly TimeSpan SaveDelay = TimeSpan.FromMilliseconds(500); // 500ms delay
         
         private static readonly string SettingsFilePath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -27,6 +33,54 @@ namespace EasyToDo.Services
         static NoteStorage()
         {
             LoadSettings();
+            InitializeSaveTimer();
+        }
+
+        private static void InitializeSaveTimer()
+        {
+            _saveTimer = new DispatcherTimer();
+            _saveTimer.Interval = SaveDelay;
+            _saveTimer.Tick += (s, e) =>
+            {
+                _saveTimer.Stop();
+                if (_hasPendingSave)
+                {
+                    PerformSave();
+                    _hasPendingSave = false;
+                }
+            };
+        }
+
+        private static ObservableCollection<Note> _currentNotes;
+
+        public static void RequestSave(ObservableCollection<Note> notes)
+        {
+            _currentNotes = notes;
+            _hasPendingSave = true;
+            
+            // Restart the timer - this provides throttling for rapid changes
+            _saveTimer.Stop();
+            _saveTimer.Start();
+            
+            System.Diagnostics.Debug.WriteLine($"Auto-save requested at {DateTime.Now:HH:mm:ss.fff}");
+        }
+
+        private static void PerformSave()
+        {
+            if (_currentNotes != null)
+            {
+                SaveNotes(_currentNotes);
+                System.Diagnostics.Debug.WriteLine($"Auto-save completed at {DateTime.Now:HH:mm:ss.fff}");
+            }
+        }
+
+        // Force immediate save (for critical operations)
+        public static void SaveImmediately(ObservableCollection<Note> notes)
+        {
+            _saveTimer.Stop();
+            _hasPendingSave = false;
+            SaveNotes(notes);
+            System.Diagnostics.Debug.WriteLine($"Immediate save completed at {DateTime.Now:HH:mm:ss.fff}");
         }
 
         /// <summary>

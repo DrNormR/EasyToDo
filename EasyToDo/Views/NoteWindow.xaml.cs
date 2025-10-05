@@ -256,23 +256,6 @@ namespace EasyToDo.Views
             }
         }
 
-        private void EditTextBox_LostFocus(object sender, RoutedEventArgs e)
-        {
-            if (sender is TextBox textBox)
-            {
-                var parent = textBox.Parent as Grid;
-                if (parent != null)
-                {
-                    var textBlock = parent.Children.OfType<TextBlock>().FirstOrDefault();
-                    if (textBlock != null)
-                    {
-                        textBox.Visibility = Visibility.Collapsed;
-                        textBlock.Visibility = Visibility.Visible;
-                    }
-                }
-            }
-        }
-
         private void EditTextBox_KeyDown(object sender, KeyEventArgs e)
         {
             if (sender is TextBox textBox)
@@ -287,7 +270,7 @@ namespace EasyToDo.Views
                         {
                             textBox.Visibility = Visibility.Collapsed;
                             textBlock.Visibility = Visibility.Visible;
-                            OnNoteChanged(); // Notify that the note has changed
+                            OnNoteChanged(); // Save on Enter
                         }
                     }
                     e.Handled = true;
@@ -310,6 +293,24 @@ namespace EasyToDo.Views
                         }
                     }
                     e.Handled = true;
+                }
+            }
+        }
+
+        private void EditTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (sender is TextBox textBox)
+            {
+                var parent = textBox.Parent as Grid;
+                if (parent != null)
+                {
+                    var textBlock = parent.Children.OfType<TextBlock>().FirstOrDefault();
+                    if (textBlock != null)
+                    {
+                        textBox.Visibility = Visibility.Collapsed;
+                        textBlock.Visibility = Visibility.Visible;
+                        OnNoteChanged(); // Save when losing focus
+                    }
                 }
             }
         }
