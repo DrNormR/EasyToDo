@@ -56,7 +56,7 @@ namespace EasyToDo.Views
             };
 
             StorageStatusLabel.Text = $"{icon} {NoteStorage.GetStorageLocationDescription()}";
-            StorageStatusLabel.ToolTip = $"Notes saved to: {NoteStorage.GetSaveLocation()}\n\nLeft-click for details, right-click for options";
+            StorageStatusLabel.ToolTip = $"Notes saved to: {NoteStorage.GetSaveLocation()}\n\nLeft-click for storage details\nRight-click for backup management";
         }
 
         private void ChangeStorageButton_Click(object sender, RoutedEventArgs e)
@@ -154,25 +154,40 @@ namespace EasyToDo.Views
 
         private void StorageDetails_Click(object sender, RoutedEventArgs e)
         {
-            ShowStorageDetails();
+            ShowStorageDetailsDialog();
         }
 
         private void StorageStatusLabel_Click(object sender, MouseButtonEventArgs e)
         {
-            ShowStorageDetails();
+            if (e.ChangedButton == MouseButton.Left)
+            {
+                ShowStorageDetailsDialog();
+            }
+            else if (e.ChangedButton == MouseButton.Right)
+            {
+                // Right-click shows backup management menu
+                ShowBackupMenu();
+            }
         }
 
-        private void ShowStorageDetails()
+        private void ShowStorageDetailsDialog()
         {
             var (storageType, folderPath, isCloudStorage, isCustomPath) = NoteStorage.GetStorageInfo();
             var location = NoteStorage.GetSaveLocation();
+            var (lastBackup, backupCount, nextBackup) = NoteStorage.GetBackupInfo();
+            
+            string backupInfo = lastBackup != DateTime.MinValue 
+                ? $"Last backup: {lastBackup:MMM dd, yyyy 'at' HH:mm}\nBackups available: {backupCount}\nNext backup: {nextBackup}"
+                : "No backups created yet\nFirst backup: When you close the app or tomorrow";
             
             string message = $"📍 Storage Details\n\n" +
                            $"Storage Type: {storageType}\n" +
                            $"Custom Location: {(isCustomPath ? "✅ Yes" : "❌ No")}\n" +
                            $"Cloud Sync: {(isCloudStorage ? "✅ Enabled" : "❌ Local only")}\n" +
                            $"Folder: {folderPath}\n" +
-                           $"File: {Path.GetFileName(location)}\n\n";
+                           $"File: {Path.GetFileName(location)}\n\n" +
+                           $"💾 Backup Information\n" +
+                           $"{backupInfo}\n\n";
 
             if (isCustomPath)
             {
@@ -190,12 +205,116 @@ namespace EasyToDo.Views
                           $"or use 'Change Storage Location' to choose a custom folder.";
             }
 
-            // Just show information, don't auto-open file location
-            MessageBox.Show(
-                message,
+            // Show storage details with backup options
+            var result = MessageBox.Show(
+                message + $"\n\n📋 Would you like to create a backup now?",
                 "Storage Information",
-                MessageBoxButton.OK,
+                MessageBoxButton.YesNo,
                 MessageBoxImage.Information);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                if (NoteStorage.CreateBackupNow())
+                {
+                    ShowStatusMessage("✅ Backup created successfully!", TimeSpan.FromSeconds(3));
+                }
+                else
+                {
+                    ShowStatusMessage("❌ Failed to create backup", TimeSpan.FromSeconds(3));
+                }
+            }
+        }
+
+        private void ChangeStorageLocation_Click(object sender, RoutedEventArgs e)
+        {
+            System.Diagnostics.Debug.WriteLine("ChangeStorageLocation_Click called (from context menu)");
+            ChangeStorageButton_Click(sender, e);
+        }
+
+        private void ShowBackupMenu()
+        {
+            var backups = NoteStorage.GetAvailableBackups();
+            
+            if (backups.Count == 0)
+            {
+                MessageBox.Show(
+                    "📋 No Backups Available\n\n" +
+                    "No backup files found. Backups are created automatically daily and when the app closes.\n\n" +
+                    "Would you like to create a backup now?",
+                    "Backup Management",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            string backupList = "📋 Available Backups:\n\n";
+            for (int i = 0; i < Math.Min(backups.Count, 5); i++)
+            {
+                var fileName = Path.GetFileName(backups[i]);
+                var fileDate = File.GetCreationTime(backups[i]);
+                backupList += $"• {fileName} ({fileDate:MMM dd, HH:mm})\n";
+            }
+
+            if (backups.Count > 5)
+            {
+                backupList += $"... and {backups.Count - 5} more\n";
+            }
+
+            backupList += "\n💡 Tip: Right-click the storage status to manage backups\n" +
+                         "⚠️ Restoring will replace your current notes!";
+
+            var result = MessageBox.Show(
+                backupList + "\n\nWould you like to restore from a backup?",
+                "Backup Management",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                // For now, restore from the most recent backup
+                // In a full implementation, you'd show a file picker
+                RestoreFromBackup(backups[0]);
+            }
+        }
+
+        private void RestoreFromBackup(string backupPath)
+        {
+            var result = MessageBox.Show(
+                $"⚠️ Restore Confirmation\n\n" +
+                $"This will replace ALL your current notes with the backup from:\n" +
+                $"{Path.GetFileName(backupPath)}\n" +
+                $"Created: {File.GetCreationTime(backupPath):MMM dd, yyyy 'at' HH:mm}\n\n" +
+                $"Your current notes will be lost unless you create a backup first.\n\n" +
+                $"Are you sure you want to continue?",
+                "Restore from Backup",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                try
+                {
+                    // Load notes from backup
+                    var backupNotes = NoteStorage.LoadBackup(backupPath);
+                    
+                    // Replace current notes
+                    Notes.Clear();
+                    foreach (var note in backupNotes)
+                    {
+                        Notes.Add(note);
+                    }
+
+                    // Save immediately to persist the restoration
+                    NoteStorage.SaveImmediately(Notes);
+                    
+                    ShowStatusMessage($"✅ Restored from backup: {Path.GetFileName(backupPath)}", TimeSpan.FromSeconds(4));
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error restoring backup: {ex.Message}");
+                    ShowStatusMessage("❌ Failed to restore backup", TimeSpan.FromSeconds(3));
+                }
+            }
         }
 
         private void CreateNoteButton_Click(object sender, RoutedEventArgs e)
@@ -310,12 +429,6 @@ namespace EasyToDo.Views
         {
             // Use the new throttled auto-save system
             NoteStorage.RequestSave(Notes);
-        }
-
-        private void ChangeStorageLocation_Click(object sender, RoutedEventArgs e)
-        {
-            System.Diagnostics.Debug.WriteLine("ChangeStorageLocation_Click called (from context menu)");
-            ChangeStorageButton_Click(sender, e);
         }
     }
 }

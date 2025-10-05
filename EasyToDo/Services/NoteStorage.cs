@@ -20,6 +20,12 @@ namespace EasyToDo.Services
         private static bool _hasPendingSave = false;
         private static readonly TimeSpan SaveDelay = TimeSpan.FromMilliseconds(500); // 500ms delay
         
+        // Daily backup system
+        private static DispatcherTimer _backupTimer;
+        private static DateTime _lastBackupDate = DateTime.MinValue;
+        private static readonly TimeSpan BackupInterval = TimeSpan.FromHours(24); // Daily backup
+        private static readonly int MaxBackupFiles = 7; // Keep 7 days worth of backups
+        
         private static readonly string SettingsFilePath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "EasyToDo", "settings.json");
@@ -34,6 +40,7 @@ namespace EasyToDo.Services
         {
             LoadSettings();
             InitializeSaveTimer();
+            InitializeBackupSystem();
         }
 
         private static void InitializeSaveTimer()
@@ -49,6 +56,181 @@ namespace EasyToDo.Services
                     _hasPendingSave = false;
                 }
             };
+        }
+
+        private static void InitializeBackupSystem()
+        {
+            // Check for backup on startup
+            CheckAndCreateBackup();
+            
+            // Set up backup timer to check every hour
+            _backupTimer = new DispatcherTimer();
+            _backupTimer.Interval = TimeSpan.FromHours(1); // Check hourly
+            _backupTimer.Tick += (s, e) => CheckAndCreateBackup();
+            _backupTimer.Start();
+            
+            System.Diagnostics.Debug.WriteLine("Backup system initialized - checking every hour for daily backups");
+        }
+
+        private static void CheckAndCreateBackup()
+        {
+            try
+            {
+                var now = DateTime.Now.Date; // Get today's date (without time)
+                
+                // Create backup if:
+                // 1. We haven't created one today, AND
+                // 2. The main notes file exists, AND  
+                // 3. At least 24 hours have passed since last backup
+                if (_lastBackupDate.Date < now && 
+                    File.Exists(SaveFilePath) && 
+                    (DateTime.Now - _lastBackupDate) >= BackupInterval)
+                {
+                    CreateDailyBackup();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error checking backup: {ex.Message}");
+            }
+        }
+
+        private static void CreateDailyBackup()
+        {
+            try
+            {
+                var backupFolder = Path.GetDirectoryName(SaveFilePath);
+                var timestamp = DateTime.Now.ToString("yyyy-MM-dd");
+                var backupFileName = $"notes-backup-{timestamp}.json";
+                var backupPath = Path.Combine(backupFolder, backupFileName);
+
+                // Don't create duplicate backups for the same day
+                if (File.Exists(backupPath))
+                {
+                    System.Diagnostics.Debug.WriteLine($"Backup already exists for today: {backupPath}");
+                    _lastBackupDate = DateTime.Now;
+                    SaveBackupSettings();
+                    return;
+                }
+
+                // Copy the current notes file to backup
+                File.Copy(SaveFilePath, backupPath, true);
+                _lastBackupDate = DateTime.Now;
+                SaveBackupSettings();
+
+                System.Diagnostics.Debug.WriteLine($"? Daily backup created: {backupPath}");
+
+                // Clean up old backups (keep only last MaxBackupFiles)
+                CleanupOldBackups(backupFolder);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error creating daily backup: {ex.Message}");
+            }
+        }
+
+        private static void CleanupOldBackups(string backupFolder)
+        {
+            try
+            {
+                var backupFiles = Directory.GetFiles(backupFolder, "notes-backup-*.json");
+                
+                if (backupFiles.Length <= MaxBackupFiles)
+                    return; // No cleanup needed
+
+                // Sort by creation time (oldest first)
+                Array.Sort(backupFiles, (f1, f2) => 
+                    File.GetCreationTime(f1).CompareTo(File.GetCreationTime(f2)));
+
+                // Delete oldest files to keep only MaxBackupFiles
+                int filesToDelete = backupFiles.Length - MaxBackupFiles;
+                for (int i = 0; i < filesToDelete; i++)
+                {
+                    File.Delete(backupFiles[i]);
+                    System.Diagnostics.Debug.WriteLine($"??? Deleted old backup: {Path.GetFileName(backupFiles[i])}");
+                }
+                
+                System.Diagnostics.Debug.WriteLine($"Backup cleanup complete - keeping {MaxBackupFiles} most recent backups");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error cleaning up old backups: {ex.Message}");
+            }
+        }
+
+        public static List<string> GetAvailableBackups()
+        {
+            try
+            {
+                var backupFolder = Path.GetDirectoryName(SaveFilePath);
+                var backupFiles = Directory.GetFiles(backupFolder, "notes-backup-*.json");
+                
+                // Sort by creation time (newest first)
+                Array.Sort(backupFiles, (f1, f2) => 
+                    File.GetCreationTime(f2).CompareTo(File.GetCreationTime(f1)));
+
+                return new List<string>(backupFiles);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error getting available backups: {ex.Message}");
+                return new List<string>();
+            }
+        }
+
+        public static ObservableCollection<Note> LoadBackup(string backupPath)
+        {
+            try
+            {
+                if (File.Exists(backupPath))
+                {
+                    string jsonString = File.ReadAllText(backupPath);
+                    var notes = JsonSerializer.Deserialize<ObservableCollection<Note>>(jsonString, Options);
+                    
+                    System.Diagnostics.Debug.WriteLine($"Backup loaded from: {backupPath}");
+                    return notes ?? new ObservableCollection<Note>();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error loading backup: {ex.Message}");
+            }
+
+            return new ObservableCollection<Note>();
+        }
+
+        private static void SaveBackupSettings()
+        {
+            try
+            {
+                var settings = LoadSettingsInternal() ?? new Dictionary<string, string>();
+                settings["LastBackupDate"] = _lastBackupDate.ToString("O"); // ISO 8601 format
+                
+                Directory.CreateDirectory(Path.GetDirectoryName(SettingsFilePath));
+                var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(SettingsFilePath, json);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error saving backup settings: {ex.Message}");
+            }
+        }
+
+        private static Dictionary<string, string> LoadSettingsInternal()
+        {
+            try
+            {
+                if (File.Exists(SettingsFilePath))
+                {
+                    var json = File.ReadAllText(SettingsFilePath);
+                    return JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error loading settings: {ex.Message}");
+            }
+            return new Dictionary<string, string>();
         }
 
         private static ObservableCollection<Note> _currentNotes;
@@ -81,6 +263,45 @@ namespace EasyToDo.Services
             _hasPendingSave = false;
             SaveNotes(notes);
             System.Diagnostics.Debug.WriteLine($"Immediate save completed at {DateTime.Now:HH:mm:ss.fff}");
+            
+            // Check if we need to create a backup after immediate save
+            CheckAndCreateBackup();
+        }
+
+        /// <summary>
+        /// Manually create a backup (can be called from UI)
+        /// </summary>
+        public static bool CreateBackupNow()
+        {
+            try
+            {
+                if (!File.Exists(SaveFilePath))
+                {
+                    System.Diagnostics.Debug.WriteLine("No notes file exists to backup");
+                    return false;
+                }
+
+                CreateDailyBackup();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error creating manual backup: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get backup information for display
+        /// </summary>
+        public static (DateTime LastBackup, int BackupCount, string NextBackup) GetBackupInfo()
+        {
+            var backups = GetAvailableBackups();
+            var nextBackup = _lastBackupDate.Date < DateTime.Now.Date ? "Today" : 
+                           (_lastBackupDate.AddDays(1).Date == DateTime.Now.Date ? "Tomorrow" : 
+                            _lastBackupDate.AddDays(1).ToString("MMM dd"));
+
+            return (_lastBackupDate, backups.Count, nextBackup);
         }
 
         /// <summary>
@@ -541,12 +762,11 @@ namespace EasyToDo.Services
         {
             try
             {
-                if (File.Exists(SettingsFilePath))
+                var settings = LoadSettingsInternal();
+                if (settings != null)
                 {
-                    var json = File.ReadAllText(SettingsFilePath);
-                    var settings = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
-                    
-                    if (settings != null && settings.TryGetValue("CustomStoragePath", out var customPath) && 
+                    // Load custom storage path
+                    if (settings.TryGetValue("CustomStoragePath", out var customPath) && 
                         !string.IsNullOrEmpty(customPath))
                     {
                         // Verify the custom path is still valid
@@ -559,6 +779,14 @@ namespace EasyToDo.Services
                         {
                             System.Diagnostics.Debug.WriteLine($"Custom storage path no longer exists: {customPath}");
                         }
+                    }
+
+                    // Load last backup date
+                    if (settings.TryGetValue("LastBackupDate", out var backupDateString) && 
+                        DateTime.TryParse(backupDateString, out var backupDate))
+                    {
+                        _lastBackupDate = backupDate;
+                        System.Diagnostics.Debug.WriteLine($"Last backup date loaded: {_lastBackupDate:yyyy-MM-dd HH:mm:ss}");
                     }
                 }
             }
@@ -575,7 +803,8 @@ namespace EasyToDo.Services
         {
             try
             {
-                var settings = new Dictionary<string, string>();
+                var settings = LoadSettingsInternal() ?? new Dictionary<string, string>();
+                
                 if (!string.IsNullOrEmpty(_customSavePath))
                 {
                     settings["CustomStoragePath"] = _customSavePath;
