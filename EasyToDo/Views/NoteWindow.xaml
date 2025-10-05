@@ -60,12 +60,16 @@
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,5">
             <TextBlock Text="Color: " VerticalAlignment="Center"/>
-            <ComboBox x:Name="ColorPicker" Width="100" SelectionChanged="ColorPicker_SelectionChanged">
-                <ComboBoxItem Content="Yellow" Tag="#FFFFE0"/>
-                <ComboBoxItem Content="Pink" Tag="#FFE4E1"/>
-                <ComboBoxItem Content="Blue" Tag="#E0FFFF"/>
-                <ComboBoxItem Content="Green" Tag="#E0FFE0"/>
-                <ComboBoxItem Content="Orange" Tag="#FFE4C4"/>
+            <ComboBox x:Name="ColorPicker" Width="60" SelectionChanged="ColorPicker_SelectionChanged">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <Rectangle Width="24" Height="20" 
+                                  Fill="{Binding Color}" 
+                                  Stroke="Gray" 
+                                  StrokeThickness="1"
+                                  Margin="2"/>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
             </ComboBox>
         </StackPanel>
 

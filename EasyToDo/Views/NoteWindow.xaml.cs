@@ -1,9 +1,10 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Linq;
 using EasyToDo.Models;
 
 namespace EasyToDo.Views
@@ -17,6 +18,18 @@ namespace EasyToDo.Views
         private NoteItem _draggedItem;
         private bool _nextItemIsHeading = false;
 
+        // Available color options
+        private readonly List<ColorOption> _colorOptions = new List<ColorOption>
+        {
+            new ColorOption("Yellow", "#FFFFE0"),
+            new ColorOption("Pink", "#FFE4E1"),
+            new ColorOption("Blue", "#E0FFFF"),
+            new ColorOption("Green", "#E0FFE0"),
+            new ColorOption("Orange", "#FFE4C4"),
+            new ColorOption("Purple", "#E6E6FA"),
+            new ColorOption("Peach", "#FFDAB9")
+        };
+
         // Event to notify when a note changes
         public event EventHandler NoteChanged;
 
@@ -26,9 +39,12 @@ namespace EasyToDo.Views
             _note = note;
             DataContext = _note;
 
-            // Set initial color
+            // Setup color picker
+            ColorPicker.ItemsSource = _colorOptions;
+            
+            // Set initial color and find matching color option
             SetBackgroundColor(_note.BackgroundColor);
-            ColorPicker.SelectedIndex = 0; // Default to yellow
+            SetColorPickerSelection(_note.BackgroundColor);
 
             // Set window position slightly offset from cursor
             var mousePosition = Mouse.GetPosition(Application.Current.MainWindow);
@@ -41,13 +57,32 @@ namespace EasyToDo.Views
             }
         }
 
+        private void SetColorPickerSelection(Color noteColor)
+        {
+            // Find the color option that matches the note's background color
+            var matchingOption = _colorOptions.FirstOrDefault(option => 
+                option.ColorValue.R == noteColor.R && 
+                option.ColorValue.G == noteColor.G && 
+                option.ColorValue.B == noteColor.B);
+
+            if (matchingOption != null)
+            {
+                ColorPicker.SelectedItem = matchingOption;
+            }
+            else
+            {
+                // Default to first color if no match found
+                ColorPicker.SelectedIndex = 0;
+            }
+        }
+
         private void PinButton_Click(object sender, RoutedEventArgs e)
         {
             _isPinned = !_isPinned;
             Topmost = _isPinned;
             if (sender is Button pinButton)
             {
-                pinButton.Content = _isPinned ? "📍" : "📌";
+                pinButton.Content = _isPinned ? "??" : "??";
                 pinButton.ToolTip = _isPinned ? "Unpin window" : "Pin window on top";
             }
         }
@@ -162,16 +197,11 @@ namespace EasyToDo.Views
 
         private void ColorPicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (ColorPicker.SelectedItem is ComboBoxItem selectedItem)
+            if (ColorPicker.SelectedItem is ColorOption selectedOption)
             {
-                var colorHex = selectedItem.Tag.ToString();
-                if (colorHex != null)
-                {
-                    var color = (Color)ColorConverter.ConvertFromString(colorHex);
-                    _note.BackgroundColor = color;
-                    SetBackgroundColor(color);
-                    OnNoteChanged(); // Notify that the note has changed
-                }
+                _note.BackgroundColor = selectedOption.ColorValue;
+                SetBackgroundColor(selectedOption.ColorValue);
+                OnNoteChanged(); // Notify that the note has changed
             }
         }
 
