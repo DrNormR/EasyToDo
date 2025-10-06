@@ -465,5 +465,67 @@ namespace EasyToDo.Views
             // Use the new throttled auto-save system
             NoteStorage.RequestSave(Notes);
         }
+
+        // Update-related event handlers
+        private async void CheckForUpdates_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                ShowStatusMessage("🔍 Checking for updates...", TimeSpan.FromSeconds(2));
+                
+                var updateInfo = await UpdateService.CheckForUpdatesAsync();
+                if (updateInfo != null)
+                {
+                    await UpdateService.ShowUpdateDialogAsync(updateInfo);
+                }
+                else
+                {
+                    var currentVersion = UpdateService.GetCurrentVersion();
+                    MessageBox.Show(
+                        $"✅ You're running the latest version!\n\n" +
+                        $"Current version: {currentVersion}\n\n" +
+                        $"EasyToDo will automatically check for updates daily.",
+                        "No Updates Available",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowStatusMessage("❌ Failed to check for updates", TimeSpan.FromSeconds(3));
+                MessageBox.Show(
+                    $"Failed to check for updates:\n{ex.Message}\n\n" +
+                    $"Please check your internet connection and try again.",
+                    "Update Check Failed",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+        }
+
+        private void AboutApp_Click(object sender, RoutedEventArgs e)
+        {
+            var currentVersion = UpdateService.GetCurrentVersion();
+            var (storageType, folderPath, isCloudStorage, isCustomPath) = NoteStorage.GetStorageInfo();
+            
+            string aboutMessage = $"📝 EasyToDo\n" +
+                                $"Version {currentVersion}\n\n" +
+                                $"🚀 Features:\n" +
+                                $"• Simple note management\n" +
+                                $"• Automatic cloud sync ({storageType})\n" +
+                                $"• Automatic backups\n" +
+                                $"• Auto-updates from GitHub\n\n" +
+                                $"💻 Built with:\n" +
+                                $"• .NET 8\n" +
+                                $"• WPF (Windows Presentation Foundation)\n\n" +
+                                $"🔗 GitHub Repository:\n" +
+                                $"github.com/DrNormR/EasyToDo\n\n" +
+                                $"Made with ❤️ for productivity";
+
+            MessageBox.Show(
+                aboutMessage,
+                "About EasyToDo",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
     }
 }
