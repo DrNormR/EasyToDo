@@ -39,7 +39,7 @@
 
         <DockPanel Grid.Row="0" Name="TitleBar" LastChildFill="True">
             <Button x:Name="PinButton"
-                    Content="📌"
+                    Content="&#128206;"
                     Width="20"
                     Height="20"
                     Margin="0,0,5,0"
@@ -47,15 +47,19 @@
                     Click="PinButton_Click"
                     Background="Transparent"
                     BorderThickness="0"
-                    FontSize="16"
-                    FontWeight="Bold"
-                    FontFamily="Segoe UI Emoji"/>
+                    FontSize="14"
+                    FontWeight="Normal"
+                    FontFamily="Segoe UI Emoji, Segoe UI, Arial Unicode MS, Arial"/>
             <TextBox x:Name="TitleTextBox" 
                      Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"
                      FontSize="16" 
                      FontWeight="Bold"
                      Background="Transparent"
-                     BorderThickness="0"/>
+                     BorderThickness="0"
+                     FontFamily="Segoe UI Emoji, Segoe UI, Arial Unicode MS"
+                     TextOptions.TextFormattingMode="Display"
+                     TextOptions.TextRenderingMode="Auto"
+                     UseLayoutRounding="True"/>
         </DockPanel>
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,5">

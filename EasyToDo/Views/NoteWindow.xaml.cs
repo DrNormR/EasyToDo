@@ -46,6 +46,9 @@ namespace EasyToDo.Views
             SetBackgroundColor(_note.BackgroundColor);
             SetColorPickerSelection(_note.BackgroundColor);
 
+            // Initialize pin button state
+            UpdatePinButtonAppearance();
+
             // Set window position slightly offset from cursor
             var mousePosition = Mouse.GetPosition(Application.Current.MainWindow);
             var mainWindow = Application.Current.MainWindow;
@@ -80,10 +83,23 @@ namespace EasyToDo.Views
         {
             _isPinned = !_isPinned;
             Topmost = _isPinned;
-            if (sender is Button pinButton)
+            UpdatePinButtonAppearance();
+        }
+
+        private void UpdatePinButtonAppearance()
+        {
+            if (PinButton != null)
             {
-                pinButton.Content = _isPinned ? "??" : "??";
-                pinButton.ToolTip = _isPinned ? "Unpin window" : "Pin window on top";
+                // Use explicit Unicode string literals for pin emojis
+                string unpinnedIcon = "\U0001F4CC"; // ?? pushpin
+                string pinnedIcon = "\U0001F4CD";   // ?? round pushpin
+                
+                PinButton.Content = _isPinned ? pinnedIcon : unpinnedIcon;
+                PinButton.ToolTip = _isPinned ? "Unpin window (click to allow window behind)" : "Pin window on top (always visible)";
+                
+                // Visual feedback for state
+                PinButton.Opacity = _isPinned ? 1.0 : 0.8;
+                PinButton.FontWeight = _isPinned ? FontWeights.Bold : FontWeights.Normal;
             }
         }
 
