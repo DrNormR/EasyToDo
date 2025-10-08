@@ -45,7 +45,7 @@ namespace EasyToDo.Services
                 System.Diagnostics.Debug.WriteLine($"\n??? Testing tag: '{tag}'");
                 
                 var versionString = tag.ToLowerInvariant();
-                var prefixes = new[] { "easytodov", "easytodo-v", "easytodo_v", "easytodo", "v", "version", "release" };
+                var prefixes = new[] { "easytodov", "easytodo-v", "easytodo_v", "easytodo", "v", "version" };
                 
                 foreach (var prefix in prefixes)
                 {
@@ -123,7 +123,7 @@ namespace EasyToDo.Services
                 var versionString = tagName.ToLowerInvariant();
                 
                 // Remove common prefixes (including your specific format)
-                var prefixes = new[] { "easytodov", "easytodo-v", "easytodo_v", "easytodo", "v", "version", "release" };
+                var prefixes = new[] { "easytodov", "easytodo-v", "easytodo_v", "easytodo", "v", "version" };
                 foreach (var prefix in prefixes)
                 {
                     if (versionString.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
@@ -310,6 +310,30 @@ namespace EasyToDo.Services
 
                 if (result == MessageBoxResult.Yes)
                 {
+                    // Test the download URL first
+                    System.Diagnostics.Debug.WriteLine("?? Testing download URL before full download...");
+                    var (isValid, testMessage, contentLength) = await TestDownloadUrlAsync(updateInfo.DownloadUrl);
+                    
+                    if (!isValid)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"? Download URL test failed: {testMessage}");
+                        MessageBox.Show(
+                            $"Download URL Validation Failed\n\n" +
+                            $"The update download URL appears to be invalid:\n" +
+                            $"{testMessage}\n\n" +
+                            $"This could be due to:\n" +
+                            $"• Temporary GitHub server issues\n" +
+                            $"• Network connectivity problems\n" +
+                            $"• Firewall/antivirus blocking access\n\n" +
+                            $"URL: {updateInfo.DownloadUrl}\n\n" +
+                            $"Please try again later or visit GitHub manually.",
+                            "Download Error",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning);
+                        return false;
+                    }
+                    
+                    System.Diagnostics.Debug.WriteLine($"? Download URL test passed: {testMessage}");
                     return await DownloadAndInstallUpdateAsync(updateInfo);
                 }
             }
@@ -338,54 +362,127 @@ namespace EasyToDo.Services
         private static async Task<bool> DownloadAndInstallUpdateAsync(UpdateInfo updateInfo)
         {
             if (string.IsNullOrEmpty(updateInfo.DownloadUrl))
+            {
+                System.Diagnostics.Debug.WriteLine("? Download URL is null or empty");
                 return false;
+            }
+
+            UpdateProgressWindow? progressWindow = null;
+            string? downloadPath = null;
 
             try
             {
+                System.Diagnostics.Debug.WriteLine($"?? Starting download from: {updateInfo.DownloadUrl}");
+                
                 // Show progress window
-                _progressWindow = new UpdateProgressWindow();
-                _progressWindow.Show();
-                _progressWindow.UpdateStatus("Preparing update...");
+                progressWindow = new UpdateProgressWindow();
+                _progressWindow = progressWindow;
+                progressWindow.Show();
+                progressWindow.UpdateStatus("Preparing update...");
 
                 // Create temp directory for update files
                 var tempDir = Path.Combine(Path.GetTempPath(), "EasyToDo_Update");
+                System.Diagnostics.Debug.WriteLine($"?? Temp directory: {tempDir}");
+                
                 if (Directory.Exists(tempDir))
                 {
                     Directory.Delete(tempDir, true);
+                    System.Diagnostics.Debug.WriteLine("??? Cleaned existing temp directory");
                 }
                 Directory.CreateDirectory(tempDir);
 
                 var fileExtension = updateInfo.UpdateType == "MSI" ? ".msi" : ".zip";
-                var downloadPath = Path.Combine(tempDir, $"update{fileExtension}");
+                downloadPath = Path.Combine(tempDir, $"update{fileExtension}");
+                System.Diagnostics.Debug.WriteLine($"?? Download path: {downloadPath}");
 
-                _progressWindow.UpdateStatus("Downloading update...");
+                progressWindow.UpdateStatus("Downloading update...");
 
-                // Download with progress
+                // Enhanced download with better error handling
+                System.Diagnostics.Debug.WriteLine("?? Starting HTTP request...");
                 using var response = await _httpClient.GetAsync(updateInfo.DownloadUrl, HttpCompletionOption.ResponseHeadersRead);
+                
+                System.Diagnostics.Debug.WriteLine($"?? HTTP Status: {response.StatusCode}");
+                System.Diagnostics.Debug.WriteLine($"?? Response Headers: {string.Join(", ", response.Headers.Select(h => $"{h.Key}: {string.Join(", ", h.Value)}"))}");
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new HttpRequestException($"HTTP request failed with status {response.StatusCode}: {response.ReasonPhrase}");
+                }
+
                 response.EnsureSuccessStatusCode();
 
                 var totalBytes = response.Content.Headers.ContentLength ?? 0;
+                System.Diagnostics.Debug.WriteLine($"?? Content length: {totalBytes} bytes ({totalBytes / 1024 / 1024:F2} MB)");
+                
+                if (totalBytes == 0)
+                {
+                    System.Diagnostics.Debug.WriteLine("?? Warning: Content-Length is 0 or not provided");
+                }
+
                 using var contentStream = await response.Content.ReadAsStreamAsync();
                 using var fileStream = new FileStream(downloadPath, FileMode.Create, FileAccess.Write, FileShare.None);
 
                 var buffer = new byte[8192];
                 var totalBytesRead = 0L;
                 int bytesRead;
+                var lastProgressUpdate = DateTime.Now;
+
+                System.Diagnostics.Debug.WriteLine("?? Starting download stream...");
 
                 while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length)) != 0)
                 {
                     await fileStream.WriteAsync(buffer, 0, bytesRead);
                     totalBytesRead += bytesRead;
                     
-                    if (totalBytes != 0)
+                    // Update progress more frequently for debugging
+                    var now = DateTime.Now;
+                    if (now - lastProgressUpdate > TimeSpan.FromMilliseconds(500) || totalBytes == 0)
                     {
-                        var progress = (int)((totalBytesRead * 100) / totalBytes);
-                        _progressWindow.UpdateProgress(progress);
-                        _progressWindow.UpdateStatus($"Downloaded {totalBytesRead / 1024 / 1024:F1} MB of {totalBytes / 1024 / 1024:F1} MB");
+                        lastProgressUpdate = now;
+                        
+                        if (totalBytes != 0)
+                        {
+                            var progress = (int)((totalBytesRead * 100) / totalBytes);
+                            progressWindow.UpdateProgress(progress);
+                            progressWindow.UpdateStatus($"Downloaded {totalBytesRead / 1024 / 1024:F1} MB of {totalBytes / 1024 / 1024:F1} MB");
+                            System.Diagnostics.Debug.WriteLine($"?? Progress: {progress}% ({totalBytesRead}/{totalBytes} bytes)");
+                        }
+                        else
+                        {
+                            progressWindow.UpdateStatus($"Downloaded {totalBytesRead / 1024 / 1024:F1} MB (size unknown)");
+                            System.Diagnostics.Debug.WriteLine($"?? Downloaded: {totalBytesRead} bytes (total size unknown)");
+                        }
                     }
                 }
 
-                _progressWindow.UpdateStatus("Preparing installation...");
+                // Ensure file is written to disk
+                await fileStream.FlushAsync();
+                fileStream.Close();
+                
+                System.Diagnostics.Debug.WriteLine($"? Download completed. Total bytes read: {totalBytesRead}");
+
+                // Verify the downloaded file
+                if (File.Exists(downloadPath))
+                {
+                    var downloadedFileInfo = new FileInfo(downloadPath);
+                    System.Diagnostics.Debug.WriteLine($"?? Downloaded file size: {downloadedFileInfo.Length} bytes ({downloadedFileInfo.Length / 1024 / 1024:F2} MB)");
+                    
+                    if (downloadedFileInfo.Length == 0)
+                    {
+                        throw new InvalidOperationException("Downloaded file is 0 bytes. The download may have failed or been interrupted.");
+                    }
+                    
+                    if (totalBytes > 0 && downloadedFileInfo.Length != totalBytes)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"?? Warning: Downloaded file size ({downloadedFileInfo.Length}) doesn't match expected size ({totalBytes})");
+                    }
+                }
+                else
+                {
+                    throw new FileNotFoundException($"Downloaded file not found at: {downloadPath}");
+                }
+
+                progressWindow.UpdateStatus("Preparing installation...");
 
                 // Handle different update types
                 if (updateInfo.UpdateType == "MSI")
@@ -397,14 +494,48 @@ namespace EasyToDo.Services
                     return await InstallZipUpdateAsync(downloadPath, tempDir);
                 }
             }
-            catch (Exception ex)
+            catch (HttpRequestException httpEx)
             {
-                _progressWindow?.Close();
+                System.Diagnostics.Debug.WriteLine($"? HTTP Error downloading update: {httpEx.Message}");
+                progressWindow?.Close();
+                
                 MessageBox.Show(
-                    $"Failed to download or install update:\n{ex.Message}",
-                    "Update Error",
+                    $"Network Error During Download\n\n" +
+                    $"Failed to download the update file:\n{httpEx.Message}\n\n" +
+                    $"Please check:\n" +
+                    $"• Your internet connection\n" +
+                    $"• Firewall or antivirus blocking the download\n" +
+                    $"• GitHub.com accessibility\n\n" +
+                    $"Download URL: {updateInfo.DownloadUrl}",
+                    "Download Error",
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"? Error downloading/installing update: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"?? Stack trace: {ex.StackTrace}");
+                
+                progressWindow?.Close();
+                
+                var errorMessage = $"Update Download/Installation Failed\n\n" +
+                                 $"Error: {ex.Message}\n\n";
+                
+                if (!string.IsNullOrEmpty(downloadPath) && File.Exists(downloadPath))
+                {
+                    var fileSize = new FileInfo(downloadPath).Length;
+                    errorMessage += $"Downloaded file: {downloadPath}\n" +
+                                   $"File size: {fileSize} bytes\n\n";
+                }
+                
+                errorMessage += $"You can try:\n" +
+                               $"• Running EasyToDo as Administrator\n" +
+                               $"• Temporarily disabling antivirus\n" +
+                               $"• Downloading manually from GitHub\n\n" +
+                               $"Download URL: {updateInfo.DownloadUrl}";
+                
+                MessageBox.Show(errorMessage, "Update Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
         }
@@ -760,6 +891,66 @@ del ""%~f0"" 2>nul
 
             // Exit current application
             Application.Current.Shutdown();
+        }
+
+        /// <summary>
+        /// Tests the download URL to verify it's accessible and returns valid content
+        /// </summary>
+        public static async Task<(bool IsValid, string Message, long ContentLength)> TestDownloadUrlAsync(string downloadUrl)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"?? Testing download URL: {downloadUrl}");
+                
+                using var headRequest = new HttpRequestMessage(HttpMethod.Head, downloadUrl);
+                using var response = await _httpClient.SendAsync(headRequest);
+                
+                System.Diagnostics.Debug.WriteLine($"?? HEAD Response Status: {response.StatusCode}");
+                System.Diagnostics.Debug.WriteLine($"?? Response Headers: {string.Join(", ", response.Headers.Select(h => $"{h.Key}: {string.Join(", ", h.Value)}"))}");
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    return (false, $"HTTP {response.StatusCode}: {response.ReasonPhrase}", 0);
+                }
+                
+                var contentLength = response.Content.Headers.ContentLength ?? 0;
+                System.Diagnostics.Debug.WriteLine($"?? Content Length from HEAD: {contentLength} bytes");
+                
+                if (contentLength == 0)
+                {
+                    return (false, "Content-Length is 0 bytes", 0);
+                }
+                
+                var contentType = response.Content.Headers.ContentType?.MediaType ?? "unknown";
+                System.Diagnostics.Debug.WriteLine($"?? Content-Type: {contentType}");
+
+                // Additional validation: Perform a ranged GET request to check content validity
+                using (var getRequest = new HttpRequestMessage(HttpMethod.Get, downloadUrl))
+                {
+                    getRequest.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(0, 1023); // First 1024 bytes
+
+                    using var getResponse = await _httpClient.SendAsync(getRequest);
+                    if (!getResponse.IsSuccessStatusCode)
+                    {
+                        return (false, $"HTTP {getResponse.StatusCode}: {getResponse.ReasonPhrase} (Content check)", contentLength);
+                    }
+
+                    var responseBody = await getResponse.Content.ReadAsStringAsync();
+                    if (string.IsNullOrEmpty(responseBody) || responseBody.Length < 100)
+                    {
+                        return (false, "Downloaded content is empty or too short", contentLength);
+                    }
+
+                    System.Diagnostics.Debug.WriteLine($"?? Content preview: {responseBody.Substring(0, 100)}... (truncated for debug)");
+                }
+                
+                return (true, $"URL is valid. Size: {contentLength / 1024 / 1024:F2} MB, Type: {contentType}", contentLength);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"? Error testing download URL: {ex.Message}");
+                return (false, $"Error testing URL: {ex.Message}", 0);
+            }
         }
 
         /// <summary>
