@@ -413,13 +413,40 @@ namespace EasyToDo.Services
                     return false;
                 }
 
-                CreateDailyBackup();
+                CreateManualBackup();
                 return true;
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error creating manual backup: {ex.Message}");
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Creates a manual backup with timestamp (always creates a new file)
+        /// </summary>
+        private static void CreateManualBackup()
+        {
+            try
+            {
+                var backupFolder = Path.GetDirectoryName(SaveFilePath);
+                var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+                var backupFileName = $"notes-backup-{timestamp}.json";
+                var backupPath = Path.Combine(backupFolder, backupFileName);
+
+                // Always create a new backup file with timestamp (no duplicate prevention)
+                File.Copy(SaveFilePath, backupPath, false); // Don't overwrite if somehow exists
+                
+                System.Diagnostics.Debug.WriteLine($"?? Manual backup created: {backupPath}");
+
+                // Clean up old backups (keep only last MaxBackupFiles)
+                CleanupOldBackups(backupFolder);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error creating manual backup: {ex.Message}");
+                throw; // Re-throw to let CreateBackupNow handle it
             }
         }
 
@@ -1091,6 +1118,22 @@ namespace EasyToDo.Services
         }
 
         /// <summary>
+        /// Forces an immediate check for external file changes (manual sync)
+        /// </summary>
+        public static void ForceCheckSync()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("?? Force sync check requested");
+                CheckForExternalChanges();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error in force sync check: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Gets the folder path where notes are stored (without the filename)
         /// </summary>
         public static string GetStorageFolder()
@@ -1151,22 +1194,6 @@ namespace EasyToDo.Services
                 {
                     System.Diagnostics.Debug.WriteLine($"Error opening storage folder as fallback: {fallbackEx.Message}");
                 }
-            }
-        }
-
-        /// <summary>
-        /// Forces an immediate check for external file changes (manual sync)
-        /// </summary>
-        public static void ForceCheckSync()
-        {
-            try
-            {
-                System.Diagnostics.Debug.WriteLine("?? Force sync check requested");
-                CheckForExternalChanges();
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error in force sync check: {ex.Message}");
             }
         }
 

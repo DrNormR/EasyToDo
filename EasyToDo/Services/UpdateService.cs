@@ -24,6 +24,68 @@ namespace EasyToDo.Services
         }
 
         /// <summary>
+        /// Tests version parsing with various tag formats (for debugging)
+        /// </summary>
+        public static void TestVersionParsing()
+        {
+            var testTags = new[]
+            {
+                "easytodov2.3",
+                "v2.3.0",
+                "2.3.0",
+                "easytodo-v2.3.1",
+                "EasyToDoV2.4",
+                "release-2.5.0"
+            };
+
+            System.Diagnostics.Debug.WriteLine("?? Testing version parsing...");
+            
+            foreach (var tag in testTags)
+            {
+                System.Diagnostics.Debug.WriteLine($"\n??? Testing tag: '{tag}'");
+                
+                var versionString = tag.ToLowerInvariant();
+                var prefixes = new[] { "easytodov", "easytodo-v", "easytodo_v", "easytodo", "v", "version", "release" };
+                
+                foreach (var prefix in prefixes)
+                {
+                    if (versionString.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    {
+                        versionString = versionString[prefix.Length..];
+                        System.Diagnostics.Debug.WriteLine($"   ?? Removed '{prefix}' prefix: '{versionString}'");
+                        break;
+                    }
+                }
+                
+                versionString = versionString.TrimStart('-', '_', '.');
+                
+                var versionMatch = System.Text.RegularExpressions.Regex.Match(versionString, @"^(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:\.(\d+))?");
+                if (versionMatch.Success)
+                {
+                    var major = versionMatch.Groups[1].Value;
+                    var minor = versionMatch.Groups[2].Success ? versionMatch.Groups[2].Value : "0";
+                    var build = versionMatch.Groups[3].Success ? versionMatch.Groups[3].Value : "0";
+                    var revision = versionMatch.Groups[4].Success ? versionMatch.Groups[4].Value : "0";
+                    
+                    versionString = $"{major}.{minor}.{build}.{revision}";
+                    
+                    if (Version.TryParse(versionString, out var parsedVersion))
+                    {
+                        System.Diagnostics.Debug.WriteLine($"   ? Parsed successfully: {parsedVersion}");
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"   ? Parse failed: '{versionString}'");
+                    }
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"   ? Regex match failed for: '{versionString}'");
+                }
+            }
+        }
+
+        /// <summary>
         /// Gets the current version of the application
         /// </summary>
         public static Version GetCurrentVersion()
@@ -39,27 +101,83 @@ namespace EasyToDo.Services
         {
             try
             {
+                System.Diagnostics.Debug.WriteLine($"?? Starting update check...");
+                System.Diagnostics.Debug.WriteLine($"?? GitHub API URL: {GitHubApiUrl}");
+                
                 var response = await _httpClient.GetStringAsync(GitHubApiUrl);
+                System.Diagnostics.Debug.WriteLine($"? GitHub API response received (length: {response.Length} chars)");
+                
                 using var document = JsonDocument.Parse(response);
                 var root = document.RootElement;
 
                 var tagName = root.GetProperty("tag_name").GetString();
-                if (string.IsNullOrEmpty(tagName)) return null;
-
-                // Remove 'v' prefix if present
-                if (tagName.StartsWith("v", StringComparison.OrdinalIgnoreCase))
-                    tagName = tagName[1..];
-
-                if (!Version.TryParse(tagName, out var latestVersion))
+                System.Diagnostics.Debug.WriteLine($"??? GitHub tag_name: '{tagName}'");
+                
+                if (string.IsNullOrEmpty(tagName)) 
+                {
+                    System.Diagnostics.Debug.WriteLine("? Tag name is null or empty");
                     return null;
+                }
+
+                // More robust version extraction
+                var versionString = tagName.ToLowerInvariant();
+                
+                // Remove common prefixes (including your specific format)
+                var prefixes = new[] { "easytodov", "easytodo-v", "easytodo_v", "easytodo", "v", "version", "release" };
+                foreach (var prefix in prefixes)
+                {
+                    if (versionString.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    {
+                        versionString = versionString[prefix.Length..];
+                        System.Diagnostics.Debug.WriteLine($"?? Removed '{prefix}' prefix: '{versionString}'");
+                        break;
+                    }
+                }
+                
+                // Remove common separators after prefix
+                versionString = versionString.TrimStart('-', '_', '.');
+                
+                // Extract version numbers using regex (handles formats like "2.3.0-beta", "2.3", etc.)
+                var versionMatch = System.Text.RegularExpressions.Regex.Match(versionString, @"^(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:\.(\d+))?");
+                if (versionMatch.Success)
+                {
+                    var major = versionMatch.Groups[1].Value;
+                    var minor = versionMatch.Groups[2].Success ? versionMatch.Groups[2].Value : "0";
+                    var build = versionMatch.Groups[3].Success ? versionMatch.Groups[3].Value : "0";
+                    var revision = versionMatch.Groups[4].Success ? versionMatch.Groups[4].Value : "0";
+                    
+                    versionString = $"{major}.{minor}.{build}.{revision}";
+                    System.Diagnostics.Debug.WriteLine($"?? Normalized version: '{versionString}'");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"? Could not extract version numbers from: '{versionString}'");
+                }
+
+                if (!Version.TryParse(versionString, out var latestVersion))
+                {
+                    System.Diagnostics.Debug.WriteLine($"? Failed to parse version string: '{versionString}'");
+                    return null;
+                }
 
                 var currentVersion = GetCurrentVersion();
                 
+                System.Diagnostics.Debug.WriteLine($"?? Version Comparison:");
+                System.Diagnostics.Debug.WriteLine($"   Current: {currentVersion} ({currentVersion.Major}.{currentVersion.Minor}.{currentVersion.Build}.{currentVersion.Revision})");
+                System.Diagnostics.Debug.WriteLine($"   Latest:  {latestVersion} ({latestVersion.Major}.{latestVersion.Minor}.{latestVersion.Build}.{latestVersion.Revision})");
+                System.Diagnostics.Debug.WriteLine($"   Comparison result: {latestVersion.CompareTo(currentVersion)} (>0 means update available)");
+                
                 if (latestVersion > currentVersion)
                 {
+                    System.Diagnostics.Debug.WriteLine("? Update available - processing release info...");
+                    
                     var releaseUrl = root.GetProperty("html_url").GetString();
                     var releaseNotes = root.GetProperty("body").GetString();
                     var publishedAt = root.GetProperty("published_at").GetString();
+                    
+                    System.Diagnostics.Debug.WriteLine($"?? Release URL: {releaseUrl}");
+                    System.Diagnostics.Debug.WriteLine($"?? Published: {publishedAt}");
+                    System.Diagnostics.Debug.WriteLine($"?? Release notes length: {releaseNotes?.Length ?? 0} chars");
                     
                     // Look for download assets (prefer MSI, then ZIP)
                     string? downloadUrl = null;
@@ -67,16 +185,22 @@ namespace EasyToDo.Services
                     
                     if (root.TryGetProperty("assets", out var assetsElement))
                     {
+                        var assetCount = assetsElement.GetArrayLength();
+                        System.Diagnostics.Debug.WriteLine($"?? Found {assetCount} assets");
+                        
                         // First pass: Look for MSI files
                         foreach (var asset in assetsElement.EnumerateArray())
                         {
                             var assetName = asset.GetProperty("name").GetString();
+                            System.Diagnostics.Debug.WriteLine($"   Asset: '{assetName}'");
+                            
                             if (assetName != null && 
                                 (assetName.EndsWith(".msi", StringComparison.OrdinalIgnoreCase) &&
                                  assetName.Contains("EasyToDo", StringComparison.OrdinalIgnoreCase)))
                             {
                                 downloadUrl = asset.GetProperty("browser_download_url").GetString();
                                 updateType = "MSI";
+                                System.Diagnostics.Debug.WriteLine($"? Found MSI asset: {assetName}");
                                 break;
                             }
                         }
@@ -84,6 +208,7 @@ namespace EasyToDo.Services
                         // Second pass: Look for ZIP files if no MSI found
                         if (downloadUrl == null)
                         {
+                            System.Diagnostics.Debug.WriteLine("?? No MSI found, looking for ZIP files...");
                             foreach (var asset in assetsElement.EnumerateArray())
                             {
                                 var assetName = asset.GetProperty("name").GetString();
@@ -93,13 +218,23 @@ namespace EasyToDo.Services
                                 {
                                     downloadUrl = asset.GetProperty("browser_download_url").GetString();
                                     updateType = "ZIP";
+                                    System.Diagnostics.Debug.WriteLine($"? Found ZIP asset: {assetName}");
                                     break;
                                 }
                             }
                         }
+                        
+                        if (downloadUrl == null)
+                        {
+                            System.Diagnostics.Debug.WriteLine("?? No suitable download assets found");
+                        }
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine("?? No assets property found in release");
                     }
 
-                    return new UpdateInfo
+                    var updateInfo = new UpdateInfo
                     {
                         LatestVersion = latestVersion,
                         CurrentVersion = currentVersion,
@@ -109,13 +244,21 @@ namespace EasyToDo.Services
                         DownloadUrl = downloadUrl,
                         UpdateType = updateType ?? "Unknown"
                     };
+                    
+                    System.Diagnostics.Debug.WriteLine($"?? Update info created successfully");
+                    return updateInfo;
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("?? No update available - current version is up to date or newer");
                 }
 
                 return null; // No update available
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error checking for updates: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"? Error checking for updates: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"?? Stack trace: {ex.StackTrace}");
                 return null;
             }
         }
@@ -267,57 +410,224 @@ namespace EasyToDo.Services
         }
 
         /// <summary>
-        /// Installs MSI update
+        /// Installs MSI update with enhanced error handling and logging
         /// </summary>
         private static async Task<bool> InstallMsiUpdateAsync(string msiPath)
         {
             try
             {
-                _progressWindow?.UpdateStatus("Launching installer...");
+                _progressWindow?.UpdateStatus("Preparing MSI installation...");
                 
-                // Close progress window before launching installer
+                // Get current application directory for validation
+                var currentAppDir = GetApplicationDirectory();
+                System.Diagnostics.Debug.WriteLine($"?? Current app directory: {currentAppDir}");
+                System.Diagnostics.Debug.WriteLine($"?? MSI path: {msiPath}");
+                
+                // Verify MSI file exists and is valid
+                if (!File.Exists(msiPath))
+                {
+                    throw new FileNotFoundException($"MSI file not found: {msiPath}");
+                }
+                
+                var msiFileSize = new FileInfo(msiPath).Length;
+                System.Diagnostics.Debug.WriteLine($"?? MSI file size: {msiFileSize / 1024 / 1024:F1} MB");
+                
+                // Close progress window before showing user dialog
                 _progressWindow?.Close();
 
-                // Show final message
+                // Enhanced user confirmation with more details
+                var confirmMessage = $"?? Ready to Install EasyToDo Update\n\n" +
+                                   $"Update file: {Path.GetFileName(msiPath)}\n" +
+                                   $"File size: {msiFileSize / 1024 / 1024:F1} MB\n" +
+                                   $"Current location: {currentAppDir}\n\n" +
+                                   $"The MSI installer will:\n" +
+                                   $"• Close EasyToDo automatically\n" +
+                                   $"• Update the application files\n" +
+                                   $"• Require administrator privileges\n" +
+                                   $"• Launch the updated version\n\n" +
+                                   $"?? Important: Save any unsaved work first!\n\n" +
+                                   $"Continue with the installation?";
+
                 var result = MessageBox.Show(
-                    "MSI installer downloaded successfully!\n\n" +
-                    "The installer will now launch to update EasyToDo.\n" +
-                    "EasyToDo will close automatically.\n\n" +
-                    "Click OK to proceed with the installation.",
-                    "Ready to Install",
-                    MessageBoxButton.OKCancel,
-                    MessageBoxImage.Information);
+                    confirmMessage,
+                    "Confirm Update Installation",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
 
-                if (result == MessageBoxResult.OK)
+                if (result != MessageBoxResult.Yes)
                 {
-                    // Launch MSI installer
-                    var startInfo = new ProcessStartInfo
-                    {
-                        FileName = "msiexec.exe",
-                        Arguments = $"/i \"{msiPath}\" /passive /norestart",
-                        UseShellExecute = true,
-                        Verb = "runas" // Request admin privileges
-                    };
+                    System.Diagnostics.Debug.WriteLine("? User cancelled MSI installation");
+                    return false;
+                }
 
-                    Process.Start(startInfo);
+                // Try multiple MSI installation approaches
+                System.Diagnostics.Debug.WriteLine("?? Starting MSI installation process...");
 
+                // Approach 1: Standard MSI install with logging
+                var success = await TryMsiInstallWithLogging(msiPath);
+                
+                if (!success)
+                {
+                    System.Diagnostics.Debug.WriteLine("?? Standard MSI install failed, trying interactive mode...");
+                    // Approach 2: Interactive install as fallback
+                    success = await TryInteractiveMsiInstall(msiPath);
+                }
+                
+                if (success)
+                {
+                    System.Diagnostics.Debug.WriteLine("? MSI installation initiated successfully");
+                    
+                    // Give the installer a moment to start before closing the app
+                    await Task.Delay(2000);
+                    
                     // Close the current application
-                    await Task.Delay(1000); // Give time for installer to start
                     Application.Current.Shutdown();
                     return true;
                 }
-
-                return false;
+                else
+                {
+                    // If MSI installation fails, offer manual installation
+                    await OfferManualInstallation(msiPath);
+                    return false;
+                }
             }
             catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"? Error in MSI installation: {ex.Message}");
+                _progressWindow?.Close();
+                
                 MessageBox.Show(
-                    $"Failed to launch MSI installer:\n{ex.Message}\n\n" +
-                    $"You can manually run the installer at:\n{msiPath}",
+                    $"Update Installation Error\n\n" +
+                    $"The automatic update installation failed:\n" +
+                    $"{ex.Message}\n\n" +
+                    $"You can manually run the installer at:\n" +
+                    $"{msiPath}\n\n" +
+                    $"Or download it again from GitHub.",
                     "Installation Error",
                     MessageBoxButton.OK,
-                    MessageBoxImage.Error);
+                    MessageBoxImage.Warning);
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Attempts MSI installation with detailed logging
+        /// </summary>
+        private static async Task<bool> TryMsiInstallWithLogging(string msiPath)
+        {
+            try
+            {
+                var logPath = Path.Combine(Path.GetTempPath(), "EasyToDo_Update_Log.txt");
+                System.Diagnostics.Debug.WriteLine($"?? MSI log file: {logPath}");
+
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "msiexec.exe",
+                    Arguments = $"/i \"{msiPath}\" /qb /norestart /l*v \"{logPath}\"",
+                    UseShellExecute = true,
+                    Verb = "runas" // Request admin privileges
+                };
+
+                System.Diagnostics.Debug.WriteLine($"?? MSI command: {startInfo.FileName} {startInfo.Arguments}");
+
+                var process = Process.Start(startInfo);
+                if (process != null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"? MSI process started with PID: {process.Id}");
+                    
+                    // Don't wait for completion - let it run in background while we close the app
+                    await Task.Delay(1000); // Give it a moment to start
+                    return true;
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("? Failed to start MSI process");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"? MSI installation with logging failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Attempts interactive MSI installation
+        /// </summary>
+        private static async Task<bool> TryInteractiveMsiInstall(string msiPath)
+        {
+            try
+            {
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "msiexec.exe",
+                    Arguments = $"/i \"{msiPath}\" /qr /norestart", // Reduced UI with modal dialogs at the end
+                    UseShellExecute = true,
+                    Verb = "runas"
+                };
+
+                System.Diagnostics.Debug.WriteLine($"?? Interactive MSI command: {startInfo.FileName} {startInfo.Arguments}");
+
+                var process = Process.Start(startInfo);
+                if (process != null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"? Interactive MSI process started with PID: {process.Id}");
+                    await Task.Delay(1000);
+                    return true;
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("? Failed to start interactive MSI process");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"? Interactive MSI installation failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Offers manual installation as a fallback
+        /// </summary>
+        private static async Task OfferManualInstallation(string msiPath)
+        {
+            try
+            {
+                var message = $"?? Automatic Installation Failed\n\n" +
+                             $"The automatic update couldn't complete, but you can install manually:\n\n" +
+                             $"Option 1: Double-click to run manually\n" +
+                             $"• File location: {msiPath}\n" +
+                             $"• Right-click ? 'Run as administrator'\n\n" +
+                             $"Option 2: Open file location\n" +
+                             $"• Click 'Open Folder' below\n" +
+                             $"• Double-click the MSI file\n\n" +
+                             $"Option 3: Download fresh copy\n" +
+                             $"• Click 'Download Again' to get a new copy\n\n" +
+                             $"The installer will update EasyToDo to the latest version.";
+
+                var dialogResult = MessageBox.Show(
+                    message + "\n\nWould you like to open the folder containing the installer?",
+                    "Manual Installation Required",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Information);
+
+                if (dialogResult == MessageBoxResult.Yes)
+                {
+                    // Open the folder containing the MSI file
+                    var folderPath = Path.GetDirectoryName(msiPath);
+                    if (!string.IsNullOrEmpty(folderPath) && Directory.Exists(folderPath))
+                    {
+                        Process.Start("explorer.exe", $"/select,\"{msiPath}\"");
+                        System.Diagnostics.Debug.WriteLine($"?? Opened folder: {folderPath}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"? Error offering manual installation: {ex.Message}");
             }
         }
 
@@ -450,6 +760,91 @@ del ""%~f0"" 2>nul
 
             // Exit current application
             Application.Current.Shutdown();
+        }
+
+        /// <summary>
+        /// Gets diagnostic information about the current installation
+        /// </summary>
+        public static string GetInstallationDiagnostics()
+        {
+            try
+            {
+                var appDir = GetApplicationDirectory();
+                var exePath = Assembly.GetExecutingAssembly().Location;
+                var currentVersion = GetCurrentVersion();
+                
+                var diagnostics = $"?? EasyToDo Installation Diagnostics\n\n" +
+                                $"Current Version: {currentVersion}\n" +
+                                $"Executable Path: {exePath}\n" +
+                                $"Application Directory: {appDir}\n" +
+                                $"Process Name: {Process.GetCurrentProcess().ProcessName}\n" +
+                                $"Process ID: {Process.GetCurrentProcess().Id}\n" +
+                                $"Running as Admin: {IsRunningAsAdministrator()}\n" +
+                                $"Windows Version: {Environment.OSVersion}\n" +
+                                $".NET Version: {Environment.Version}\n\n" +
+                                $"File System Access:\n" +
+                                $"• Can write to app dir: {CanWriteToDirectory(appDir)}\n" +
+                                $"• Can write to temp: {CanWriteToDirectory(Path.GetTempPath())}\n\n" +
+                                $"Registry Access:\n" +
+                                $"• Installed Programs Key Accessible: {CanAccessInstalledPrograms()}\n\n" +
+                                $"MSI Installation Tips:\n" +
+                                $"• Close all instances of EasyToDo before updating\n" +
+                                $"• Run MSI installer as Administrator\n" +
+                                $"• Check Windows Event Log if installation fails\n" +
+                                $"• Ensure antivirus is not blocking the installation";
+                
+                return diagnostics;
+            }
+            catch (Exception ex)
+            {
+                return $"Error generating diagnostics: {ex.Message}";
+            }
+        }
+        
+        private static bool IsRunningAsAdministrator()
+        {
+            try
+            {
+                var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+                var principal = new System.Security.Principal.WindowsPrincipal(identity);
+                return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+        
+        private static bool CanWriteToDirectory(string directoryPath)
+        {
+            try
+            {
+                if (!Directory.Exists(directoryPath))
+                    return false;
+                    
+                var testFile = Path.Combine(directoryPath, $"test_{Guid.NewGuid()}.tmp");
+                File.WriteAllText(testFile, "test");
+                File.Delete(testFile);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+        
+        private static bool CanAccessInstalledPrograms()
+        {
+            try
+            {
+                var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall");
+                key?.Close();
+                return key != null;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         /// <summary>

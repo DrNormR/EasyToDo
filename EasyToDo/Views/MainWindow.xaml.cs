@@ -147,28 +147,12 @@ namespace EasyToDo.Views
 
         private void ManageBackups_Click(object sender, RoutedEventArgs e)
         {
-            ShowBackupMenu();
+            ShowBackupFileChooser();
         }
 
         private void RestoreFromBackup_Click(object sender, RoutedEventArgs e)
         {
-            var backups = NoteStorage.GetAvailableBackups();
-            
-            if (backups.Count == 0)
-            {
-                MessageBox.Show(
-                    "📋 No Backups Available\n\n" +
-                    "No backup files found. Backups are created automatically daily and when the app closes.\n\n" +
-                    "Use 'Create Backup Now' to create your first backup.",
-                    "No Backups",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
-                return;
-            }
-
-            // For now, restore from the most recent backup
-            // In a full implementation, you'd show a file picker
-            RestoreFromBackup(backups[0]);
+            ShowBackupFileChooser();
         }
 
         private void ResetToAutoStorage_Click(object sender, RoutedEventArgs e)
@@ -320,19 +304,142 @@ namespace EasyToDo.Views
             timer.Start();
         }
 
+        private void ShowBackupFileChooser()
+        {
+            try
+            {
+                var openFileDialog = new Microsoft.Win32.OpenFileDialog();
+                openFileDialog.Title = "Choose Backup File to Restore";
+                openFileDialog.Filter = "Backup files (*.json)|*.json|All files (*.*)|*.*";
+                openFileDialog.FilterIndex = 1;
+                
+                // Set initial directory to the storage folder where backups are located
+                var storageFolder = NoteStorage.GetStorageFolder();
+                if (Directory.Exists(storageFolder))
+                {
+                    openFileDialog.InitialDirectory = storageFolder;
+                }
+
+                var result = openFileDialog.ShowDialog();
+                
+                if (result == true && !string.IsNullOrEmpty(openFileDialog.FileName))
+                {
+                    var selectedFile = openFileDialog.FileName;
+                    
+                    // Show confirmation dialog
+                    var confirmResult = MessageBox.Show(
+                        $"🔄 Restore from Backup\n\n" +
+                        $"Selected file: {Path.GetFileName(selectedFile)}\n" +
+                        $"Location: {Path.GetDirectoryName(selectedFile)}\n\n" +
+                        $"⚠️ This will replace ALL your current notes!\n\n" +
+                        $"💡 Consider creating a backup of your current notes first.\n\n" +
+                        $"Do you want to continue?",
+                        "Confirm Backup Restoration", 
+                        MessageBoxButton.YesNo, 
+                        MessageBoxImage.Warning);
+
+                    if (confirmResult == MessageBoxResult.Yes)
+                    {
+                        RestoreFromBackupFile(selectedFile);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error showing backup file chooser: {ex.Message}");
+                MessageBox.Show(
+                    $"Error opening file chooser:\n{ex.Message}",
+                    "File Selection Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+        }
+
+        private void RestoreFromBackupFile(string backupPath)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"Restoring from backup: {backupPath}");
+                
+                // Load notes from backup
+                var backupNotes = NoteStorage.LoadBackup(backupPath);
+                
+                // Temporarily unsubscribe from change events to prevent save loops during restoration
+                Notes.CollectionChanged -= Notes_CollectionChanged;
+                
+                // Clear current notes and replace with backup
+                Notes.Clear();
+                foreach (var note in backupNotes)
+                {
+                    Notes.Add(note);
+                    
+                    // Re-subscribe to property changes for the restored notes
+                    note.Items.CollectionChanged += NoteItems_CollectionChanged;
+                    if (note is INotifyPropertyChanged notifyNote)
+                    {
+                        notifyNote.PropertyChanged += Note_PropertyChanged;
+                    }
+                    
+                    // Subscribe to item property changes
+                    foreach (var item in note.Items)
+                    {
+                        if (item is INotifyPropertyChanged notifyItem)
+                        {
+                            notifyItem.PropertyChanged += NoteItem_PropertyChanged;
+                        }
+                    }
+                }
+
+                // Re-subscribe to collection changes
+                Notes.CollectionChanged += Notes_CollectionChanged;
+
+                // Save immediately to persist the restoration
+                NoteStorage.SaveImmediately(Notes);
+                
+                var fileName = Path.GetFileName(backupPath);
+                ShowStatusMessage($"✅ Restored from: {fileName}", TimeSpan.FromSeconds(4));
+                
+                System.Diagnostics.Debug.WriteLine($"Successfully restored {backupNotes.Count} notes from backup");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error restoring from backup: {ex.Message}");
+                ShowStatusMessage("❌ Failed to restore backup", TimeSpan.FromSeconds(3));
+                
+                MessageBox.Show(
+                    $"Error restoring from backup:\n{ex.Message}\n\n" +
+                    $"Your current notes have not been changed.",
+                    "Restore Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+        }
+
         private void ShowBackupMenu()
         {
             var backups = NoteStorage.GetAvailableBackups();
             
             if (backups.Count == 0)
             {
-                MessageBox.Show(
+                var createResult = MessageBox.Show(
                     "📋 No Backups Available\n\n" +
                     "No backup files found. Backups are created automatically daily and when the app closes.\n\n" +
                     "Would you like to create a backup now?",
                     "Backup Management",
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Information);
+                    
+                if (createResult == MessageBoxResult.Yes)
+                {
+                    if (NoteStorage.CreateBackupNow())
+                    {
+                        ShowStatusMessage("✅ Backup created successfully!", TimeSpan.FromSeconds(3));
+                    }
+                    else
+                    {
+                        ShowStatusMessage("❌ Failed to create backup", TimeSpan.FromSeconds(3));
+                    }
+                }
                 return;
             }
 
@@ -349,60 +456,18 @@ namespace EasyToDo.Views
                 backupList += $"... and {backups.Count - 5} more\n";
             }
 
-            backupList += "\n💡 Tip: Right-click the storage status to manage backups\n" +
+            backupList += "\n💡 Use 'Restore from Backup' in Settings Menu to choose a backup file\n" +
                          "⚠️ Restoring will replace your current notes!";
 
-            var result = MessageBox.Show(
-                backupList + "\n\nWould you like to restore from a backup?",
+            var chooseResult = MessageBox.Show(
+                backupList + "\n\nWould you like to choose a backup to restore?",
                 "Backup Management",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
 
-            if (result == MessageBoxResult.Yes)
+            if (chooseResult == MessageBoxResult.Yes)
             {
-                // For now, restore from the most recent backup
-                // In a full implementation, you'd show a file picker
-                RestoreFromBackup(backups[0]);
-            }
-        }
-
-        private void RestoreFromBackup(string backupPath)
-        {
-            var result = MessageBox.Show(
-                $"⚠️ Restore Confirmation\n\n" +
-                $"This will replace ALL your current notes with the backup from:\n" +
-                $"{Path.GetFileName(backupPath)}\n" +
-                $"Created: {File.GetCreationTime(backupPath):MMM dd, yyyy 'at' HH:mm}\n\n" +
-                $"Your current notes will be lost unless you create a backup first.\n\n" +
-                $"Are you sure you want to continue?",
-                "Restore from Backup",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
-
-            if (result == MessageBoxResult.Yes)
-            {
-                try
-                {
-                    // Load notes from backup
-                    var backupNotes = NoteStorage.LoadBackup(backupPath);
-                    
-                    // Replace current notes
-                    Notes.Clear();
-                    foreach (var note in backupNotes)
-                    {
-                        Notes.Add(note);
-                    }
-
-                    // Save immediately to persist the restoration
-                    NoteStorage.SaveImmediately(Notes);
-                    
-                    ShowStatusMessage($"✅ Restored from backup: {Path.GetFileName(backupPath)}", TimeSpan.FromSeconds(4));
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Error restoring backup: {ex.Message}");
-                    ShowStatusMessage("❌ Failed to restore backup", TimeSpan.FromSeconds(3));
-                }
+                ShowBackupFileChooser();
             }
         }
 
@@ -540,6 +605,137 @@ namespace EasyToDo.Views
             {
                 System.Diagnostics.Debug.WriteLine($"Error during manual sync check: {ex.Message}");
                 ShowStatusMessage("❌ Sync check failed", TimeSpan.FromSeconds(2));
+            }
+        }
+
+        private async void CheckForUpdates_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("🚀 Manual update check requested from UI");
+                
+                // Run version parsing test for debugging
+                UpdateService.TestVersionParsing();
+                
+                ShowStatusMessage("🚀 Checking for updates...", TimeSpan.FromSeconds(2));
+                
+                var currentVersion = UpdateService.GetCurrentVersion();
+                System.Diagnostics.Debug.WriteLine($"📍 Current version from UI: {currentVersion}");
+                
+                // Check for updates using the UpdateService
+                var updateInfo = await UpdateService.CheckForUpdatesAsync();
+                
+                if (updateInfo != null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"✅ Update found from UI check: {updateInfo.LatestVersion}");
+                    ShowStatusMessage("✅ Update available!", TimeSpan.FromSeconds(2));
+                    await UpdateService.ShowUpdateDialogAsync(updateInfo);
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("ℹ️ No update found from UI check");
+                    ShowStatusMessage("✅ You're up to date!", TimeSpan.FromSeconds(3));
+                    
+                    // Show detailed diagnostic information
+                    var diagnosticMessage = $"You're running the latest version!\n\n" +
+                                          $"Current version: {currentVersion}\n" +
+                                          $"GitHub repository: DrNormR/EasyToDo\n" +
+                                          $"Checking: https://api.github.com/repos/DrNormR/EasyToDo/releases/latest\n\n" +
+                                          $"No updates available at this time.\n\n" +
+                                          $"💡 Debug Info:\n" +
+                                          $"Assembly version: {currentVersion}\n" +
+                                          $"Version components: {currentVersion.Major}.{currentVersion.Minor}.{currentVersion.Build}.{currentVersion.Revision}\n\n" +
+                                          $"Latest GitHub tag found: Check Debug Output window for detailed parsing info.\n\n" +
+                                          $"If you just published 'easytodov2.3', the parser should now handle this format correctly.";
+
+                    MessageBox.Show(
+                        diagnosticMessage,
+                        "EasyToDo - Update Check Results",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"❌ Error in UI update check: {ex.Message}");
+                ShowStatusMessage("❌ Update check failed", TimeSpan.FromSeconds(2));
+                
+                var currentVersion = UpdateService.GetCurrentVersion();
+                var errorMessage = $"Unable to check for updates at this time.\n\n" +
+                                 $"Current version: {currentVersion}\n" +
+                                 $"Repository: DrNormR/EasyToDo\n\n" +
+                                 $"Error details:\n{ex.Message}\n\n" +
+                                 $"Please check:\n" +
+                                 $"• Your internet connection\n" +
+                                 $"• GitHub.com accessibility\n" +
+                                 $"• Repository permissions\n\n" +
+                                 $"Try again later or check GitHub directly.";
+                
+                MessageBox.Show(
+                    errorMessage,
+                    "Update Check Failed",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+        }
+
+        private void AboutApp_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var currentVersion = UpdateService.GetCurrentVersion();
+                var (storageType, folderPath, isCloudStorage, isCustomPath) = NoteStorage.GetStorageInfo();
+                
+                string syncStatus = isCloudStorage ? "✅ Cloud Sync Enabled" : "📱 Local Storage Only";
+                
+                string aboutMessage = $"📝 EasyToDo - Sticky Notes Todo App\n\n" +
+                                     $"Version: {currentVersion}\n" +
+                                     $"Storage: {storageType}\n" +
+                                     $"Sync Status: {syncStatus}\n\n" +
+                                     $"🚀 Features:\n" +
+                                     $"• Create and manage todo notes\n" +
+                                     $"• Drag & drop to reorder items\n" +
+                                     $"• Mark items as critical or headings\n" +
+                                     $"• Color-coded notes\n" +
+                                     $"• Pin notes on top\n" +
+                                     $"• Automatic cloud sync (Dropbox/OneDrive)\n" +
+                                     $"• Daily automatic backups\n" +
+                                     $"• Real-time sync across devices\n" +
+                                     $"• Auto-update system\n\n" +
+                                     $"💾 Your notes are safely stored at:\n" +
+                                     $"{folderPath}\n\n" +
+                                     $"© 2024 EasyToDo - Simple, Fast, Reliable\n\n" +
+                                     $"🔧 Having update issues? Click 'Show Details' for diagnostics.";
+
+                var result = MessageBox.Show(
+                    aboutMessage,
+                    "About EasyToDo",
+                    MessageBoxButton.OKCancel,
+                    MessageBoxImage.Information);
+
+                // If user clicks Cancel (which we'll use as "Show Details"), show diagnostics
+                if (result == MessageBoxResult.Cancel)
+                {
+                    var diagnostics = UpdateService.GetInstallationDiagnostics();
+                    MessageBox.Show(
+                        diagnostics,
+                        "EasyToDo - Installation Diagnostics",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error showing about dialog: {ex.Message}");
+                MessageBox.Show(
+                    $"📝 EasyToDo - Sticky Notes Todo App\n\n" +
+                    $"Version: {UpdateService.GetCurrentVersion()}\n\n" +
+                    $"A simple and intuitive todo application\n" +
+                    $"with cloud sync capabilities.\n\n" +
+                    $"© 2024 EasyToDo",
+                    "About EasyToDo",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
             }
         }
     }
