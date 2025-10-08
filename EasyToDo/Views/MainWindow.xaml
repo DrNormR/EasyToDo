@@ -27,12 +27,12 @@
             <Button x:Name="StorageMenuButton" 
                     Width="120" 
                     Margin="2"
-                    ToolTip="Storage and backup options"
+                    ToolTip="App settings, storage, backup, and update options"
                     Click="StorageMenuButton_Click">
                 <Button.Content>
                     <StackPanel Orientation="Horizontal">
                         <TextBlock x:Name="StorageMenuIcon" Text="💾" Margin="0,0,3,0"/>
-                        <TextBlock Text="Storage Menu"/>
+                        <TextBlock Text="Settings Menu"/>
                         <TextBlock Text=" ▼" Margin="3,0,0,0" FontSize="8"/>
                     </StackPanel>
                 </Button.Content>
@@ -49,6 +49,9 @@
                         <Separator/>
                         <MenuItem Header="📋 Manage Backups" Click="ManageBackups_Click"/>
                         <MenuItem Header="🔄 Restore from Backup" Click="RestoreFromBackup_Click"/>
+                        <Separator/>
+                        <MenuItem Header="🚀 Check for Updates" Click="CheckForUpdates_Click"/>
+                        <MenuItem Header="ℹ️ About EasyToDo" Click="AboutApp_Click"/>
                     </ContextMenu>
                 </Button.ContextMenu>
             </Button>
