@@ -80,10 +80,44 @@ namespace EasyToDo.Views
         {
             _isPinned = !_isPinned;
             Topmost = _isPinned;
+            
             if (sender is Button pinButton)
             {
-                pinButton.Content = _isPinned ? "??" : "??";
-                pinButton.ToolTip = _isPinned ? "Unpin window" : "Pin window on top";
+                // Add debug information
+                System.Diagnostics.Debug.WriteLine($"Pin state changed to: {_isPinned}");
+                
+                // Try emoji first, fallback to simple symbols if needed
+                string emojiContent = _isPinned ? "\U0001F4CD" : "\U0001F4CC"; // ?? : ??
+                string fallbackContent = _isPinned ? "?" : "?"; // Filled circle : Empty circle
+                string newTooltip = _isPinned ? "Unpin window" : "Pin window on top";
+                
+                System.Diagnostics.Debug.WriteLine($"Setting button content to: {emojiContent}");
+                
+                // Set content with emoji first
+                pinButton.Content = emojiContent;
+                pinButton.ToolTip = newTooltip;
+                
+                // Ensure proper font fallback for emoji rendering
+                pinButton.FontFamily = new System.Windows.Media.FontFamily("Segoe UI Emoji, Segoe UI Symbol, Segoe UI, Arial Unicode MS");
+                
+                // Force visual refresh
+                pinButton.InvalidateVisual();
+                pinButton.UpdateLayout();
+                
+                // If we still get rendering issues, we could add a timer to check and fallback
+                // This is a backup approach in case emoji rendering fails completely
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    // Check if content appears to be rendered correctly by verifying it's not showing as "?"
+
+                    var currentContent = pinButton.Content?.ToString();
+                    if (string.IsNullOrEmpty(currentContent) || currentContent.Contains("?") || currentContent.Contains("?"))
+                    {
+                        System.Diagnostics.Debug.WriteLine("Emoji rendering failed, using fallback symbols");
+                        pinButton.Content = fallbackContent;
+                        pinButton.FontFamily = new System.Windows.Media.FontFamily("Segoe UI, Arial");
+                    }
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
             }
         }
 

@@ -11,9 +11,9 @@
     <ApplicationIcon>resources/post-it-orange.ico</ApplicationIcon>
     
     <!-- Version Information -->
-    <Version>1.4.0</Version>
-    <AssemblyVersion>1.4.0.0</AssemblyVersion>
-    <FileVersion>1.4.0.0</FileVersion>
+    <Version>2.2.0</Version>
+    <AssemblyVersion>2.2.0.0</AssemblyVersion>
+    <FileVersion>2.2.0.0</FileVersion>
     <AssemblyTitle>EasyToDo</AssemblyTitle>
     <Product>EasyToDo - Sticky Notes Todo App</Product>
     <Description>A simple and intuitive sticky notes todo application for Windows with cloud sync support</Description>

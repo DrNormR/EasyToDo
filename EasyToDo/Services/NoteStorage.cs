@@ -20,6 +20,16 @@ namespace EasyToDo.Services
         private static bool _hasPendingSave = false;
         private static readonly TimeSpan SaveDelay = TimeSpan.FromMilliseconds(500); // 500ms delay
         
+        // File monitoring for real-time sync
+        private static FileSystemWatcher _fileWatcher;
+        private static DateTime _lastFileWrite = DateTime.MinValue;
+        private static DateTime _lastSaveTime = DateTime.MinValue;
+        private static bool _isExternalChange = false;
+        
+        // Sync detection timer
+        private static DispatcherTimer _syncCheckTimer;
+        private static readonly TimeSpan SyncCheckInterval = TimeSpan.FromSeconds(2); // Check every 2 seconds
+        
         // Daily backup system
         private static DispatcherTimer _backupTimer;
         private static DateTime _lastBackupDate = DateTime.MinValue;
@@ -36,11 +46,15 @@ namespace EasyToDo.Services
             Converters = { new ColorJsonConverter() }
         };
 
+        // Event for notifying the UI when external changes are detected
+        public static event EventHandler<ObservableCollection<Note>> ExternalFileChanged;
+
         static NoteStorage()
         {
             LoadSettings();
             InitializeSaveTimer();
             InitializeBackupSystem();
+            InitializeFileMonitoring();
         }
 
         private static void InitializeSaveTimer()
@@ -56,6 +70,124 @@ namespace EasyToDo.Services
                     _hasPendingSave = false;
                 }
             };
+        }
+
+        private static void InitializeFileMonitoring()
+        {
+            try
+            {
+                // Set up file system watcher to monitor the notes file
+                var notesFolder = GetStorageFolder();
+                if (Directory.Exists(notesFolder))
+                {
+                    _fileWatcher = new FileSystemWatcher(notesFolder, "notes.json");
+                    _fileWatcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size;
+                    _fileWatcher.Changed += OnNotesFileChanged;
+                    _fileWatcher.EnableRaisingEvents = true;
+                    
+                    System.Diagnostics.Debug.WriteLine($"File monitoring started for: {Path.Combine(notesFolder, "notes.json")}");
+                }
+                
+                // Also set up a periodic sync check timer as a fallback
+                _syncCheckTimer = new DispatcherTimer();
+                _syncCheckTimer.Interval = SyncCheckInterval;
+                _syncCheckTimer.Tick += (s, e) => CheckForExternalChanges();
+                _syncCheckTimer.Start();
+                
+                System.Diagnostics.Debug.WriteLine("Sync monitoring initialized - checking every 2 seconds");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error initializing file monitoring: {ex.Message}");
+            }
+        }
+
+        private static void OnNotesFileChanged(object sender, FileSystemEventArgs e)
+        {
+            if (e.ChangeType == WatcherChangeTypes.Changed)
+            {
+                System.Diagnostics.Debug.WriteLine($"File change detected: {e.FullPath} at {DateTime.Now:HH:mm:ss.fff}");
+                
+                // Debounce file change events (wait a bit to ensure file is fully written)
+                var currentTime = DateTime.Now;
+                _lastFileWrite = currentTime;
+                
+                // Use dispatcher to check after a delay
+                System.Windows.Application.Current?.Dispatcher.BeginInvoke(new Action(async () =>
+                {
+                    await System.Threading.Tasks.Task.Delay(100); // Wait 100ms to ensure file is complete
+                    
+                    // Only process if this is still the most recent change
+                    if (DateTime.Now - _lastFileWrite < TimeSpan.FromMilliseconds(200))
+                    {
+                        CheckForExternalChanges();
+                    }
+                }));
+            }
+        }
+
+        private static void CheckForExternalChanges()
+        {
+            try
+            {
+                if (!File.Exists(SaveFilePath))
+                    return;
+
+                var fileInfo = new FileInfo(SaveFilePath);
+                var fileLastWrite = fileInfo.LastWriteTime;
+
+                // Check if file was modified externally (not by our own save operation)
+                if (fileLastWrite > _lastSaveTime.AddSeconds(1) && // More than 1 second after our last save
+                    DateTime.Now - fileLastWrite < TimeSpan.FromMinutes(5)) // But within the last 5 minutes
+                {
+                    System.Diagnostics.Debug.WriteLine($"External file change detected! File modified at {fileLastWrite:HH:mm:ss}, our last save at {_lastSaveTime:HH:mm:ss}");
+                    
+                    // Load the updated notes and notify the UI
+                    var updatedNotes = LoadNotesFromFile();
+                    if (updatedNotes != null)
+                    {
+                        _isExternalChange = true;
+                        ExternalFileChanged?.Invoke(null, updatedNotes);
+                        System.Diagnostics.Debug.WriteLine($"? External changes loaded and UI notified - {updatedNotes.Count} notes");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error checking for external changes: {ex.Message}");
+            }
+        }
+
+        private static ObservableCollection<Note> LoadNotesFromFile()
+        {
+            try
+            {
+                if (File.Exists(SaveFilePath))
+                {
+                    string jsonString = File.ReadAllText(SaveFilePath);
+                    var notes = JsonSerializer.Deserialize<ObservableCollection<Note>>(jsonString, Options);
+                    return notes ?? new ObservableCollection<Note>();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error loading notes from file: {ex.Message}");
+            }
+            return new ObservableCollection<Note>();
+        }
+
+        public static void StopFileMonitoring()
+        {
+            try
+            {
+                _fileWatcher?.Dispose();
+                _syncCheckTimer?.Stop();
+                System.Diagnostics.Debug.WriteLine("File monitoring stopped");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error stopping file monitoring: {ex.Message}");
+            }
         }
 
         private static void InitializeBackupSystem()
@@ -118,7 +250,7 @@ namespace EasyToDo.Services
                 _lastBackupDate = DateTime.Now;
                 SaveBackupSettings();
 
-                System.Diagnostics.Debug.WriteLine($"? Daily backup created: {backupPath}");
+                System.Diagnostics.Debug.WriteLine($"?? Daily backup created: {backupPath}");
 
                 // Clean up old backups (keep only last MaxBackupFiles)
                 CleanupOldBackups(backupFolder);
@@ -846,15 +978,49 @@ namespace EasyToDo.Services
         {
             try
             {
+                // Track when we're saving to avoid detecting our own changes as external
+                _lastSaveTime = DateTime.Now;
+                
                 Directory.CreateDirectory(Path.GetDirectoryName(SaveFilePath));
                 string jsonString = JsonSerializer.Serialize(notes, Options);
                 File.WriteAllText(SaveFilePath, jsonString);
                 
-                System.Diagnostics.Debug.WriteLine($"Notes saved to: {SaveFilePath}");
+                System.Diagnostics.Debug.WriteLine($"Notes saved to: {SaveFilePath} at {_lastSaveTime:HH:mm:ss.fff}");
+                
+                // Update file monitoring if folder changed
+                UpdateFileMonitoring();
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error saving notes: {ex.Message}");
+            }
+        }
+
+        private static void UpdateFileMonitoring()
+        {
+            try
+            {
+                var currentFolder = GetStorageFolder();
+                
+                // If the folder changed, restart file monitoring
+                if (_fileWatcher?.Path != currentFolder)
+                {
+                    _fileWatcher?.Dispose();
+                    
+                    if (Directory.Exists(currentFolder))
+                    {
+                        _fileWatcher = new FileSystemWatcher(currentFolder, "notes.json");
+                        _fileWatcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size;
+                        _fileWatcher.Changed += OnNotesFileChanged;
+                        _fileWatcher.EnableRaisingEvents = true;
+                        
+                        System.Diagnostics.Debug.WriteLine($"File monitoring updated for: {Path.Combine(currentFolder, "notes.json")}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error updating file monitoring: {ex.Message}");
             }
         }
 
@@ -873,7 +1039,13 @@ namespace EasyToDo.Services
                     string jsonString = File.ReadAllText(SaveFilePath);
                     var notes = JsonSerializer.Deserialize<ObservableCollection<Note>>(jsonString, Options);
                     
+                    // Track the last file modification time
+                    var fileInfo = new FileInfo(SaveFilePath);
+                    _lastSaveTime = fileInfo.LastWriteTime;
+                    
                     System.Diagnostics.Debug.WriteLine($"Notes loaded from: {SaveFilePath}");
+                    System.Diagnostics.Debug.WriteLine($"File last modified: {_lastSaveTime:HH:mm:ss.fff}");
+                    
                     return notes ?? new ObservableCollection<Note>();
                 }
             }
@@ -979,6 +1151,22 @@ namespace EasyToDo.Services
                 {
                     System.Diagnostics.Debug.WriteLine($"Error opening storage folder as fallback: {fallbackEx.Message}");
                 }
+            }
+        }
+
+        /// <summary>
+        /// Forces an immediate check for external file changes (manual sync)
+        /// </summary>
+        public static void ForceCheckSync()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("?? Force sync check requested");
+                CheckForExternalChanges();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error in force sync check: {ex.Message}");
             }
         }
 

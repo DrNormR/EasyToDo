@@ -38,8 +38,62 @@ namespace EasyToDo.Views
             // Register window closing event to save notes
             Closing += MainWindow_Closing;
 
+            // Subscribe to external file changes for real-time sync
+            NoteStorage.ExternalFileChanged += OnExternalFileChanged;
+
             // Update storage status display
             UpdateStorageStatus();
+        }
+
+        private void OnExternalFileChanged(object sender, ObservableCollection<Note> updatedNotes)
+        {
+            // This runs when another device/instance changes the notes file
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"🔄 External file changes detected - updating UI with {updatedNotes.Count} notes");
+                
+                // Update the Notes collection on the UI thread
+                Dispatcher.Invoke(() =>
+                {
+                    // Temporarily unsubscribe from change events to prevent save loops
+                    Notes.CollectionChanged -= Notes_CollectionChanged;
+                    
+                    // Clear and reload all notes
+                    Notes.Clear();
+                    foreach (var note in updatedNotes)
+                    {
+                        Notes.Add(note);
+                        
+                        // Re-subscribe to property changes for the new notes
+                        note.Items.CollectionChanged += NoteItems_CollectionChanged;
+                        if (note is System.ComponentModel.INotifyPropertyChanged notifyNote)
+                        {
+                            notifyNote.PropertyChanged += Note_PropertyChanged;
+                        }
+                        
+                        // Subscribe to item property changes
+                        foreach (var item in note.Items)
+                        {
+                            if (item is System.ComponentModel.INotifyPropertyChanged notifyItem)
+                            {
+                                notifyItem.PropertyChanged += NoteItem_PropertyChanged;
+                            }
+                        }
+                    }
+                    
+                    // Re-subscribe to collection changes
+                    Notes.CollectionChanged += Notes_CollectionChanged;
+                    
+                    // Show a subtle notification
+                    ShowStatusMessage("🔄 Notes synchronized", TimeSpan.FromSeconds(2));
+                    
+                    System.Diagnostics.Debug.WriteLine("✅ UI updated with synchronized notes");
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error handling external file changes: {ex.Message}");
+            }
         }
 
         private void UpdateStorageStatus()
@@ -456,6 +510,12 @@ namespace EasyToDo.Views
 
         private void MainWindow_Closing(object sender, CancelEventArgs e)
         {
+            // Unsubscribe from external file changes
+            NoteStorage.ExternalFileChanged -= OnExternalFileChanged;
+            
+            // Stop file monitoring
+            NoteStorage.StopFileMonitoring();
+            
             // Force immediate save when application is closing
             NoteStorage.SaveImmediately(Notes);
         }
@@ -464,6 +524,23 @@ namespace EasyToDo.Views
         {
             // Use the new throttled auto-save system
             NoteStorage.RequestSave(Notes);
+        }
+
+        private void CheckForSync_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("Manual sync check requested");
+                ShowStatusMessage("🔄 Checking for updates...", TimeSpan.FromSeconds(1));
+                
+                // Force an immediate sync check
+                NoteStorage.ForceCheckSync();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error during manual sync check: {ex.Message}");
+                ShowStatusMessage("❌ Sync check failed", TimeSpan.FromSeconds(2));
+            }
         }
     }
 }
