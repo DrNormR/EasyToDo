@@ -42,6 +42,7 @@
                         <MenuItem Header="💾 Create Backup Now" Click="CreateBackupNow_Click"/>
                         <Separator/>
                         <MenuItem Header="🔄 Check for Sync Updates" Click="CheckForSync_Click"/>
+                        <MenuItem Header="🔍 Sync Diagnostics" Click="ShowSyncDiagnostics_Click"/>
                         <MenuItem Header="📁 Open Storage Folder" Click="OpenStorageFolder_Click"/>
                         <Separator/>
                         <MenuItem Header="🔧 Change Storage Location" Click="ChangeStorageLocation_Click"/>

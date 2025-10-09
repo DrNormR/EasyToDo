@@ -55,6 +55,10 @@ namespace EasyToDo.Views
                 // Update the Notes collection on the UI thread
                 Dispatcher.Invoke(() =>
                 {
+                    // Keep track of which note windows are currently open
+                    var openWindows = Application.Current.Windows.OfType<NoteWindow>().ToList();
+                    var windowNoteMapping = openWindows.ToDictionary(w => w.DataContext as Note, w => w);
+                    
                     // Temporarily unsubscribe from change events to prevent save loops
                     Notes.CollectionChanged -= Notes_CollectionChanged;
                     
@@ -81,18 +85,66 @@ namespace EasyToDo.Views
                         }
                     }
                     
+                    // Update any open note windows with the refreshed data
+                    foreach (var window in openWindows)
+                    {
+                        try
+                        {
+                            var oldNote = window.DataContext as Note;
+                            if (oldNote != null)
+                            {
+                                // Find the corresponding updated note by title (or could use ID if available)
+                                var updatedNote = updatedNotes.FirstOrDefault(n => 
+                                    n.Title == oldNote.Title && 
+                                    n.BackgroundColor.Equals(oldNote.BackgroundColor));
+                                
+                                if (updatedNote != null)
+                                {
+                                    // Update the window's DataContext to the new note instance
+                                    window.DataContext = updatedNote;
+                                    System.Diagnostics.Debug.WriteLine($"🪟 Updated note window for: {updatedNote.Title}");
+                                }
+                                else
+                                {
+                                    // The note might have been deleted externally
+                                    System.Diagnostics.Debug.WriteLine($"⚠️ Note window for '{oldNote.Title}' - corresponding note not found in update");
+                                    
+                                    // Show a message to the user and close the window
+                                    MessageBox.Show(
+                                        $"The note '{oldNote.Title}' has been modified or deleted on another device.\n\n" +
+                                        $"This window will now close to prevent conflicts.",
+                                        "Note Synchronized",
+                                        MessageBoxButton.OK,
+                                        MessageBoxImage.Information);
+                                    
+                                    window.Close();
+                                }
+                            }
+                        }
+                        catch (Exception windowEx)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"❌ Error updating note window: {windowEx.Message}");
+                        }
+                    }
+                    
                     // Re-subscribe to collection changes
                     Notes.CollectionChanged += Notes_CollectionChanged;
                     
                     // Show a subtle notification
                     ShowStatusMessage("🔄 Notes synchronized", TimeSpan.FromSeconds(2));
                     
-                    System.Diagnostics.Debug.WriteLine("✅ UI updated with synchronized notes");
+                    System.Diagnostics.Debug.WriteLine($"✅ UI updated with synchronized notes - {openWindows.Count} windows refreshed");
                 });
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error handling external file changes: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"❌ Error handling external file changes: {ex.Message}");
+                
+                // Show user-friendly error message
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    ShowStatusMessage("⚠️ Sync error - check Debug Output", TimeSpan.FromSeconds(3));
+                }));
             }
         }
 
@@ -600,11 +652,37 @@ namespace EasyToDo.Views
                 
                 // Force an immediate sync check
                 NoteStorage.ForceCheckSync();
+                
+                // Show brief success message
+                ShowStatusMessage("✅ Sync check completed", TimeSpan.FromSeconds(2));
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error during manual sync check: {ex.Message}");
                 ShowStatusMessage("❌ Sync check failed", TimeSpan.FromSeconds(2));
+            }
+        }
+
+        private void ShowSyncDiagnostics_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var diagnostics = NoteStorage.GetSyncDiagnostics();
+                
+                MessageBox.Show(
+                    diagnostics,
+                    "Sync Diagnostics",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error showing sync diagnostics: {ex.Message}");
+                MessageBox.Show(
+                    $"Error generating diagnostics:\n{ex.Message}",
+                    "Diagnostics Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
             }
         }
 

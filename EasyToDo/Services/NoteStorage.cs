@@ -81,11 +81,22 @@ namespace EasyToDo.Services
                 if (Directory.Exists(notesFolder))
                 {
                     _fileWatcher = new FileSystemWatcher(notesFolder, "notes.json");
-                    _fileWatcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size;
+                    _fileWatcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.CreationTime;
                     _fileWatcher.Changed += OnNotesFileChanged;
+                    _fileWatcher.Created += OnNotesFileChanged; // Also monitor file creation
+                    _fileWatcher.IncludeSubdirectories = false;
+                    
+                    // Increase internal buffer size to prevent missed events
+                    _fileWatcher.InternalBufferSize = 8192 * 4; // 32KB buffer
+                    
                     _fileWatcher.EnableRaisingEvents = true;
                     
-                    System.Diagnostics.Debug.WriteLine($"File monitoring started for: {Path.Combine(notesFolder, "notes.json")}");
+                    System.Diagnostics.Debug.WriteLine($"?? File monitoring started for: {Path.Combine(notesFolder, "notes.json")}");
+                    System.Diagnostics.Debug.WriteLine($"?? Monitoring folder: {notesFolder}");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"?? Storage folder doesn't exist yet: {notesFolder}");
                 }
                 
                 // Also set up a periodic sync check timer as a fallback
@@ -94,35 +105,55 @@ namespace EasyToDo.Services
                 _syncCheckTimer.Tick += (s, e) => CheckForExternalChanges();
                 _syncCheckTimer.Start();
                 
-                System.Diagnostics.Debug.WriteLine("Sync monitoring initialized - checking every 2 seconds");
+                System.Diagnostics.Debug.WriteLine("?? Sync monitoring initialized - checking every 2 seconds");
+                System.Diagnostics.Debug.WriteLine($"?? Current save file path: {SaveFilePath}");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error initializing file monitoring: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"? Error initializing file monitoring: {ex.Message}");
             }
         }
 
         private static void OnNotesFileChanged(object sender, FileSystemEventArgs e)
         {
-            if (e.ChangeType == WatcherChangeTypes.Changed)
+            try
             {
-                System.Diagnostics.Debug.WriteLine($"File change detected: {e.FullPath} at {DateTime.Now:HH:mm:ss.fff}");
-                
-                // Debounce file change events (wait a bit to ensure file is fully written)
-                var currentTime = DateTime.Now;
-                _lastFileWrite = currentTime;
-                
-                // Use dispatcher to check after a delay
-                System.Windows.Application.Current?.Dispatcher.BeginInvoke(new Action(async () =>
+                if (e.ChangeType == WatcherChangeTypes.Changed || e.ChangeType == WatcherChangeTypes.Created)
                 {
-                    await System.Threading.Tasks.Task.Delay(100); // Wait 100ms to ensure file is complete
+                    System.Diagnostics.Debug.WriteLine($"?? File change detected: {e.FullPath} ({e.ChangeType}) at {DateTime.Now:HH:mm:ss.fff}");
                     
-                    // Only process if this is still the most recent change
-                    if (DateTime.Now - _lastFileWrite < TimeSpan.FromMilliseconds(200))
+                    // Debounce file change events (wait a bit to ensure file is fully written)
+                    var currentTime = DateTime.Now;
+                    _lastFileWrite = currentTime;
+                    
+                    // Use dispatcher to check after a delay
+                    System.Windows.Application.Current?.Dispatcher.BeginInvoke(new Action(async () =>
                     {
-                        CheckForExternalChanges();
-                    }
-                }));
+                        try
+                        {
+                            await System.Threading.Tasks.Task.Delay(200); // Wait 200ms to ensure file is complete
+                            
+                            // Only process if this is still the most recent change
+                            if (DateTime.Now - _lastFileWrite < TimeSpan.FromMilliseconds(400))
+                            {
+                                System.Diagnostics.Debug.WriteLine($"?? Processing file change from {currentTime:HH:mm:ss.fff}");
+                                CheckForExternalChanges();
+                            }
+                            else
+                            {
+                                System.Diagnostics.Debug.WriteLine($"?? Skipping outdated file change from {currentTime:HH:mm:ss.fff}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"? Error in file change handler: {ex.Message}");
+                        }
+                    }));
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"? Error in OnNotesFileChanged: {ex.Message}");
             }
         }
 
@@ -131,16 +162,23 @@ namespace EasyToDo.Services
             try
             {
                 if (!File.Exists(SaveFilePath))
+                {
+                    System.Diagnostics.Debug.WriteLine($"?? Save file doesn't exist: {SaveFilePath}");
                     return;
+                }
 
                 var fileInfo = new FileInfo(SaveFilePath);
                 var fileLastWrite = fileInfo.LastWriteTime;
+                var timeSinceLastSave = fileLastWrite - _lastSaveTime;
+                var timeSinceFileWrite = DateTime.Now - fileLastWrite;
+
+                System.Diagnostics.Debug.WriteLine($"?? Sync Check - File: {fileLastWrite:HH:mm:ss.fff}, Our Save: {_lastSaveTime:HH:mm:ss.fff}, Diff: {timeSinceLastSave.TotalSeconds:F1}s");
 
                 // Check if file was modified externally (not by our own save operation)
                 if (fileLastWrite > _lastSaveTime.AddSeconds(1) && // More than 1 second after our last save
-                    DateTime.Now - fileLastWrite < TimeSpan.FromMinutes(5)) // But within the last 5 minutes
+                    timeSinceFileWrite < TimeSpan.FromMinutes(10)) // But within the last 10 minutes
                 {
-                    System.Diagnostics.Debug.WriteLine($"External file change detected! File modified at {fileLastWrite:HH:mm:ss}, our last save at {_lastSaveTime:HH:mm:ss}");
+                    System.Diagnostics.Debug.WriteLine($"?? External file change detected! File modified at {fileLastWrite:HH:mm:ss.fff}, our last save at {_lastSaveTime:HH:mm:ss.fff}");
                     
                     // Load the updated notes and notify the UI
                     var updatedNotes = LoadNotesFromFile();
@@ -149,246 +187,90 @@ namespace EasyToDo.Services
                         _isExternalChange = true;
                         ExternalFileChanged?.Invoke(null, updatedNotes);
                         System.Diagnostics.Debug.WriteLine($"? External changes loaded and UI notified - {updatedNotes.Count} notes");
+                        
+                        // Update our last save time to prevent re-triggering
+                        _lastSaveTime = fileLastWrite;
                     }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"?? Failed to load updated notes from file");
+                    }
+                }
+                else if (timeSinceLastSave.TotalSeconds > 0)
+                {
+                    System.Diagnostics.Debug.WriteLine($"?? File change detected but ignoring - likely our own save or too old");
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error checking for external changes: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"? Error checking for external changes: {ex.Message}");
             }
         }
 
         private static ObservableCollection<Note> LoadNotesFromFile()
         {
-            try
+            const int maxRetries = 3;
+            const int retryDelayMs = 100;
+            
+            for (int retry = 0; retry < maxRetries; retry++)
             {
-                if (File.Exists(SaveFilePath))
+                try
                 {
-                    string jsonString = File.ReadAllText(SaveFilePath);
-                    var notes = JsonSerializer.Deserialize<ObservableCollection<Note>>(jsonString, Options);
-                    return notes ?? new ObservableCollection<Note>();
+                    if (File.Exists(SaveFilePath))
+                    {
+                        // Check if file is accessible
+                        using (var fileStream = new FileStream(SaveFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                        {
+                            using (var reader = new StreamReader(fileStream))
+                            {
+                                string jsonString = reader.ReadToEnd();
+                                
+                                if (string.IsNullOrWhiteSpace(jsonString))
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"?? Empty or whitespace JSON content on attempt {retry + 1}");
+                                    if (retry < maxRetries - 1)
+                                    {
+                                        System.Threading.Thread.Sleep(retryDelayMs);
+                                        continue;
+                                    }
+                                    return new ObservableCollection<Note>();
+                                }
+                                
+                                var notes = JsonSerializer.Deserialize<ObservableCollection<Note>>(jsonString, Options);
+                                System.Diagnostics.Debug.WriteLine($"?? Successfully loaded {notes?.Count ?? 0} notes from file on attempt {retry + 1}");
+                                return notes ?? new ObservableCollection<Note>();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"?? File doesn't exist: {SaveFilePath}");
+                        return new ObservableCollection<Note>();
+                    }
+                }
+                catch (IOException ex) when (retry < maxRetries - 1)
+                {
+                    System.Diagnostics.Debug.WriteLine($"?? File access error on attempt {retry + 1}, retrying: {ex.Message}");
+                    System.Threading.Thread.Sleep(retryDelayMs);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"? Error loading notes from file on attempt {retry + 1}: {ex.Message}");
+                    if (retry == maxRetries - 1)
+                    {
+                        break; // Don't retry on final attempt
+                    }
+                    System.Threading.Thread.Sleep(retryDelayMs);
                 }
             }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error loading notes from file: {ex.Message}");
-            }
+            
+            System.Diagnostics.Debug.WriteLine($"? Failed to load notes after {maxRetries} attempts");
             return new ObservableCollection<Note>();
         }
 
-        public static void StopFileMonitoring()
-        {
-            try
-            {
-                _fileWatcher?.Dispose();
-                _syncCheckTimer?.Stop();
-                System.Diagnostics.Debug.WriteLine("File monitoring stopped");
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error stopping file monitoring: {ex.Message}");
-            }
-        }
-
-        private static void InitializeBackupSystem()
-        {
-            // Check for backup on startup
-            CheckAndCreateBackup();
-            
-            // Set up backup timer to check every hour
-            _backupTimer = new DispatcherTimer();
-            _backupTimer.Interval = TimeSpan.FromHours(1); // Check hourly
-            _backupTimer.Tick += (s, e) => CheckAndCreateBackup();
-            _backupTimer.Start();
-            
-            System.Diagnostics.Debug.WriteLine("Backup system initialized - checking every hour for daily backups");
-        }
-
-        private static void CheckAndCreateBackup()
-        {
-            try
-            {
-                var now = DateTime.Now.Date; // Get today's date (without time)
-                
-                // Create backup if:
-                // 1. We haven't created one today, AND
-                // 2. The main notes file exists, AND  
-                // 3. At least 24 hours have passed since last backup
-                if (_lastBackupDate.Date < now && 
-                    File.Exists(SaveFilePath) && 
-                    (DateTime.Now - _lastBackupDate) >= BackupInterval)
-                {
-                    CreateDailyBackup();
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error checking backup: {ex.Message}");
-            }
-        }
-
-        private static void CreateDailyBackup()
-        {
-            try
-            {
-                var backupFolder = Path.GetDirectoryName(SaveFilePath);
-                var timestamp = DateTime.Now.ToString("yyyy-MM-dd");
-                var backupFileName = $"notes-backup-{timestamp}.json";
-                var backupPath = Path.Combine(backupFolder, backupFileName);
-
-                // Don't create duplicate backups for the same day
-                if (File.Exists(backupPath))
-                {
-                    System.Diagnostics.Debug.WriteLine($"Backup already exists for today: {backupPath}");
-                    _lastBackupDate = DateTime.Now;
-                    SaveBackupSettings();
-                    return;
-                }
-
-                // Copy the current notes file to backup
-                File.Copy(SaveFilePath, backupPath, true);
-                _lastBackupDate = DateTime.Now;
-                SaveBackupSettings();
-
-                System.Diagnostics.Debug.WriteLine($"?? Daily backup created: {backupPath}");
-
-                // Clean up old backups (keep only last MaxBackupFiles)
-                CleanupOldBackups(backupFolder);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error creating daily backup: {ex.Message}");
-            }
-        }
-
-        private static void CleanupOldBackups(string backupFolder)
-        {
-            try
-            {
-                var backupFiles = Directory.GetFiles(backupFolder, "notes-backup-*.json");
-                
-                if (backupFiles.Length <= MaxBackupFiles)
-                    return; // No cleanup needed
-
-                // Sort by creation time (oldest first)
-                Array.Sort(backupFiles, (f1, f2) => 
-                    File.GetCreationTime(f1).CompareTo(File.GetCreationTime(f2)));
-
-                // Delete oldest files to keep only MaxBackupFiles
-                int filesToDelete = backupFiles.Length - MaxBackupFiles;
-                for (int i = 0; i < filesToDelete; i++)
-                {
-                    File.Delete(backupFiles[i]);
-                    System.Diagnostics.Debug.WriteLine($"??? Deleted old backup: {Path.GetFileName(backupFiles[i])}");
-                }
-                
-                System.Diagnostics.Debug.WriteLine($"Backup cleanup complete - keeping {MaxBackupFiles} most recent backups");
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error cleaning up old backups: {ex.Message}");
-            }
-        }
-
-        public static List<string> GetAvailableBackups()
-        {
-            try
-            {
-                var backupFolder = Path.GetDirectoryName(SaveFilePath);
-                var backupFiles = Directory.GetFiles(backupFolder, "notes-backup-*.json");
-                
-                // Sort by creation time (newest first)
-                Array.Sort(backupFiles, (f1, f2) => 
-                    File.GetCreationTime(f2).CompareTo(File.GetCreationTime(f1)));
-
-                return new List<string>(backupFiles);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error getting available backups: {ex.Message}");
-                return new List<string>();
-            }
-        }
-
-        public static ObservableCollection<Note> LoadBackup(string backupPath)
-        {
-            try
-            {
-                if (File.Exists(backupPath))
-                {
-                    string jsonString = File.ReadAllText(backupPath);
-                    var notes = JsonSerializer.Deserialize<ObservableCollection<Note>>(jsonString, Options);
-                    
-                    System.Diagnostics.Debug.WriteLine($"Backup loaded from: {backupPath}");
-                    return notes ?? new ObservableCollection<Note>();
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error loading backup: {ex.Message}");
-            }
-
-            return new ObservableCollection<Note>();
-        }
-
-        private static void SaveBackupSettings()
-        {
-            try
-            {
-                var settings = LoadSettingsInternal() ?? new Dictionary<string, string>();
-                settings["LastBackupDate"] = _lastBackupDate.ToString("O"); // ISO 8601 format
-                
-                Directory.CreateDirectory(Path.GetDirectoryName(SettingsFilePath));
-                var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(SettingsFilePath, json);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error saving backup settings: {ex.Message}");
-            }
-        }
-
-        private static Dictionary<string, string> LoadSettingsInternal()
-        {
-            try
-            {
-                if (File.Exists(SettingsFilePath))
-                {
-                    var json = File.ReadAllText(SettingsFilePath);
-                    return JsonSerializer.Deserialize<Dictionary<string, string>>(json);
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error loading settings: {ex.Message}");
-            }
-            return new Dictionary<string, string>();
-        }
-
-        private static ObservableCollection<Note> _currentNotes;
-
-        public static void RequestSave(ObservableCollection<Note> notes)
-        {
-            _currentNotes = notes;
-            _hasPendingSave = true;
-            
-            // Restart the timer - this provides throttling for rapid changes
-            _saveTimer.Stop();
-            _saveTimer.Start();
-            
-            System.Diagnostics.Debug.WriteLine($"Auto-save requested at {DateTime.Now:HH:mm:ss.fff}");
-        }
-
-        private static void PerformSave()
-        {
-            if (_currentNotes != null)
-            {
-                SaveNotes(_currentNotes);
-                System.Diagnostics.Debug.WriteLine($"Auto-save completed at {DateTime.Now:HH:mm:ss.fff}");
-            }
-        }
-
-        // Force immediate save (for critical operations)
+        /// <summary>
+        /// Force immediate save (for critical operations)
+        /// </summary>
         public static void SaveImmediately(ObservableCollection<Note> notes)
         {
             _saveTimer.Stop();
@@ -1030,24 +912,37 @@ namespace EasyToDo.Services
                 var currentFolder = GetStorageFolder();
                 
                 // If the folder changed, restart file monitoring
-                if (_fileWatcher?.Path != currentFolder)
+                if (_fileWatcher?.Path != currentFolder || !_fileWatcher.EnableRaisingEvents)
                 {
+                    System.Diagnostics.Debug.WriteLine($"?? Updating file monitoring - Old: {_fileWatcher?.Path ?? "null"}, New: {currentFolder}");
+                    
                     _fileWatcher?.Dispose();
                     
                     if (Directory.Exists(currentFolder))
                     {
                         _fileWatcher = new FileSystemWatcher(currentFolder, "notes.json");
-                        _fileWatcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size;
+                        _fileWatcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.CreationTime;
                         _fileWatcher.Changed += OnNotesFileChanged;
+                        _fileWatcher.Created += OnNotesFileChanged;
+                        _fileWatcher.IncludeSubdirectories = false;
+                        _fileWatcher.InternalBufferSize = 8192 * 4; // 32KB buffer
                         _fileWatcher.EnableRaisingEvents = true;
                         
-                        System.Diagnostics.Debug.WriteLine($"File monitoring updated for: {Path.Combine(currentFolder, "notes.json")}");
+                        System.Diagnostics.Debug.WriteLine($"? File monitoring restarted for: {Path.Combine(currentFolder, "notes.json")}");
                     }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"?? Cannot monitor - folder doesn't exist: {currentFolder}");
+                    }
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"?? File monitoring already active for: {currentFolder}");
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error updating file monitoring: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"? Error updating file monitoring: {ex.Message}");
             }
         }
 
@@ -1125,11 +1020,18 @@ namespace EasyToDo.Services
             try
             {
                 System.Diagnostics.Debug.WriteLine("?? Force sync check requested");
+                
+                // Ensure file monitoring is active
+                UpdateFileMonitoring();
+                
+                // Perform immediate sync check
                 CheckForExternalChanges();
+                
+                System.Diagnostics.Debug.WriteLine("? Force sync check completed");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error in force sync check: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"? Error in force sync check: {ex.Message}");
             }
         }
 
@@ -1217,6 +1119,285 @@ namespace EasyToDo.Services
                 storageType = "Local";
 
             return (storageType, folderPath, isCloud, isCustom);
+        }
+
+        /// <summary>
+        /// Gets detailed diagnostic information about the sync system
+        /// </summary>
+        public static string GetSyncDiagnostics()
+        {
+            try
+            {
+                var fileExists = File.Exists(SaveFilePath);
+                var folderExists = Directory.Exists(GetStorageFolder());
+                var fileInfo = fileExists ? new FileInfo(SaveFilePath) : null;
+                
+                var diagnostics = "?? EasyToDo Sync Diagnostics\n" +
+                                "=" + new string('=', 35) + "\n\n" +
+                                $"?? Storage Path: {SaveFilePath}\n" +
+                                $"?? Folder Exists: {(folderExists ? "? Yes" : "? No")}\n" +
+                                $"?? File Exists: {(fileExists ? "? Yes" : "? No")}\n";
+                
+                if (fileExists && fileInfo != null)
+                {
+                    diagnostics += $"?? File Size: {fileInfo.Length:N0} bytes\n" +
+                                 $"?? File Modified: {fileInfo.LastWriteTime:yyyy-MM-dd HH:mm:ss.fff}\n" +
+                                 $"?? Our Last Save: {_lastSaveTime:yyyy-MM-dd HH:mm:ss.fff}\n" +
+                                 $"?? Time Difference: {(fileInfo.LastWriteTime - _lastSaveTime).TotalSeconds:F2} seconds\n\n";
+                }
+                else
+                {
+                    diagnostics += "?? File not available for analysis\n\n";
+                }
+                
+                diagnostics += $"?? File Watcher Status:\n" +
+                             $"  • Active: {(_fileWatcher?.EnableRaisingEvents == true ? "? Yes" : "? No")}\n" +
+                             $"  • Monitoring: {_fileWatcher?.Path ?? "None"}\n" +
+                             $"  • Filter: {_fileWatcher?.Filter ?? "None"}\n\n" +
+                             $"? Sync Timer: {(_syncCheckTimer?.IsEnabled == true ? "? Running" : "? Stopped")}\n" +
+                             $"?? Check Interval: {SyncCheckInterval.TotalSeconds} seconds\n\n";
+                
+                // Test file access
+                try
+                {
+                    if (fileExists)
+                    {
+                        using (var stream = new FileStream(SaveFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                        {
+                            diagnostics += "? File Access: Read access confirmed\n";
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    diagnostics += $"? File Access Error: {ex.Message}\n";
+                }
+                
+                diagnostics += "\n?? Troubleshooting Tips:\n" +
+                             "• Ensure both computers have EasyToDo in the same cloud folder\n" +
+                             "• Check that Dropbox/OneDrive is syncing properly\n" +
+                             "• Verify file permissions in the storage folder\n" +
+                             "• Try using 'Check for Sync' button to force a manual check\n" +
+                             "• Look at Debug Output window for real-time sync messages";
+                
+                return diagnostics;
+            }
+            catch (Exception ex)
+            {
+                return $"? Error generating diagnostics: {ex.Message}";
+            }
+        }
+
+        private static void PerformSave()
+        {
+            if (_currentNotes != null)
+            {
+                SaveNotes(_currentNotes);
+                System.Diagnostics.Debug.WriteLine($"Auto-save completed at {DateTime.Now:HH:mm:ss.fff}");
+            }
+        }
+
+        private static void InitializeBackupSystem()
+        {
+            // Check for backup on startup
+            CheckAndCreateBackup();
+            
+            // Set up backup timer to check every hour
+            _backupTimer = new DispatcherTimer();
+            _backupTimer.Interval = TimeSpan.FromHours(1); // Check hourly
+            _backupTimer.Tick += (s, e) => CheckAndCreateBackup();
+            _backupTimer.Start();
+            
+            System.Diagnostics.Debug.WriteLine("Backup system initialized - checking every hour for daily backups");
+        }
+
+        private static Dictionary<string, string> LoadSettingsInternal()
+        {
+            try
+            {
+                if (File.Exists(SettingsFilePath))
+                {
+                    var json = File.ReadAllText(SettingsFilePath);
+                    return JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error loading settings: {ex.Message}");
+            }
+            return new Dictionary<string, string>();
+        }
+
+        private static void CheckAndCreateBackup()
+        {
+            try
+            {
+                var now = DateTime.Now.Date; // Get today's date (without time)
+                
+                // Create backup if:
+                // 1. We haven't created one today, AND
+                // 2. The main notes file exists, AND  
+                // 3. At least 24 hours have passed since last backup
+                if (_lastBackupDate.Date < now && 
+                    File.Exists(SaveFilePath) && 
+                    (DateTime.Now - _lastBackupDate) >= BackupInterval)
+                {
+                    CreateDailyBackup();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error checking backup: {ex.Message}");
+            }
+        }
+
+        private static void CreateDailyBackup()
+        {
+            try
+            {
+                var backupFolder = Path.GetDirectoryName(SaveFilePath);
+                var timestamp = DateTime.Now.ToString("yyyy-MM-dd");
+                var backupFileName = $"notes-backup-{timestamp}.json";
+                var backupPath = Path.Combine(backupFolder, backupFileName);
+
+                // Don't create duplicate backups for the same day
+                if (File.Exists(backupPath))
+                {
+                    System.Diagnostics.Debug.WriteLine($"Backup already exists for today: {backupPath}");
+                    _lastBackupDate = DateTime.Now;
+                    SaveBackupSettings();
+                    return;
+                }
+
+                // Copy the current notes file to backup
+                File.Copy(SaveFilePath, backupPath, true);
+                _lastBackupDate = DateTime.Now;
+                SaveBackupSettings();
+
+                System.Diagnostics.Debug.WriteLine($"Daily backup created: {backupPath}");
+
+                // Clean up old backups (keep only last MaxBackupFiles)
+                CleanupOldBackups(backupFolder);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error creating daily backup: {ex.Message}");
+            }
+        }
+
+        private static void CleanupOldBackups(string backupFolder)
+        {
+            try
+            {
+                var backupFiles = Directory.GetFiles(backupFolder, "notes-backup-*.json");
+                
+                if (backupFiles.Length <= MaxBackupFiles)
+                    return; // No cleanup needed
+
+                // Sort by creation time (oldest first)
+                Array.Sort(backupFiles, (f1, f2) => 
+                    File.GetCreationTime(f1).CompareTo(File.GetCreationTime(f2)));
+
+                // Delete oldest files to keep only MaxBackupFiles
+                int filesToDelete = backupFiles.Length - MaxBackupFiles;
+                for (int i = 0; i < filesToDelete; i++)
+                {
+                    File.Delete(backupFiles[i]);
+                    System.Diagnostics.Debug.WriteLine($"Deleted old backup: {Path.GetFileName(backupFiles[i])}");
+                }
+                
+                System.Diagnostics.Debug.WriteLine($"Backup cleanup complete - keeping {MaxBackupFiles} most recent backups");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error cleaning up old backups: {ex.Message}");
+            }
+        }
+
+        public static List<string> GetAvailableBackups()
+        {
+            try
+            {
+                var backupFolder = Path.GetDirectoryName(SaveFilePath);
+                var backupFiles = Directory.GetFiles(backupFolder, "notes-backup-*.json");
+                
+                // Sort by creation time (newest first)
+                Array.Sort(backupFiles, (f1, f2) => 
+                    File.GetCreationTime(f2).CompareTo(File.GetCreationTime(f1)));
+
+                return new List<string>(backupFiles);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error getting available backups: {ex.Message}");
+                return new List<string>();
+            }
+        }
+
+        public static ObservableCollection<Note> LoadBackup(string backupPath)
+        {
+            try
+            {
+                if (File.Exists(backupPath))
+                {
+                    string jsonString = File.ReadAllText(backupPath);
+                    var notes = JsonSerializer.Deserialize<ObservableCollection<Note>>(jsonString, Options);
+                    
+                    System.Diagnostics.Debug.WriteLine($"Backup loaded from: {backupPath}");
+                    return notes ?? new ObservableCollection<Note>();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error loading backup: {ex.Message}");
+            }
+
+            return new ObservableCollection<Note>();
+        }
+
+        public static void StopFileMonitoring()
+        {
+            try
+            {
+                _fileWatcher?.Dispose();
+                _syncCheckTimer?.Stop();
+                System.Diagnostics.Debug.WriteLine("File monitoring stopped");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error stopping file monitoring: {ex.Message}");
+            }
+        }
+
+        private static ObservableCollection<Note> _currentNotes;
+
+        public static void RequestSave(ObservableCollection<Note> notes)
+        {
+            _currentNotes = notes;
+            _hasPendingSave = true;
+            
+            // Restart the timer - this provides throttling for rapid changes
+            _saveTimer.Stop();
+            _saveTimer.Start();
+            
+            System.Diagnostics.Debug.WriteLine($"Auto-save requested at {DateTime.Now:HH:mm:ss.fff}");
+        }
+
+        private static void SaveBackupSettings()
+        {
+            try
+            {
+                var settings = LoadSettingsInternal() ?? new Dictionary<string, string>();
+                settings["LastBackupDate"] = _lastBackupDate.ToString("O"); // ISO 8601 format
+                
+                Directory.CreateDirectory(Path.GetDirectoryName(SettingsFilePath));
+                var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(SettingsFilePath, json);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error saving backup settings: {ex.Message}");
+            }
         }
     }
 }
