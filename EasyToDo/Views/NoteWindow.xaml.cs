@@ -17,6 +17,7 @@ namespace EasyToDo.Views
         private bool _isDragging = false;
         private NoteItem _draggedItem;
         private bool _nextItemIsHeading = false;
+        private bool _isInitialized = false;
 
         // Available color options
         private readonly List<ColorOption> _colorOptions = new List<ColorOption>
@@ -54,6 +55,52 @@ namespace EasyToDo.Views
                 var point = mainWindow.PointToScreen(mousePosition);
                 Left = point.X + 20;
                 Top = point.Y + 20;
+            }
+
+            // Restore window size from note
+            RestoreWindowSize();
+
+            // Hook up window events for size persistence
+            SizeChanged += NoteWindow_SizeChanged;
+            Loaded += NoteWindow_Loaded;
+        }
+
+        private void NoteWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            _isInitialized = true;
+        }
+
+        private void NoteWindow_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            // Only save size after window is fully initialized to avoid saving intermediate sizes during window creation
+            if (_isInitialized && WindowState == WindowState.Normal)
+            {
+                SaveWindowSize();
+            }
+        }
+
+        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        {
+            // Ensure we save the window size one final time when closing
+            SaveWindowSize();
+            base.OnClosing(e);
+        }
+
+        private void RestoreWindowSize()
+        {
+            // Set window size from note properties
+            Width = _note.WindowWidth;
+            Height = _note.WindowHeight;
+        }
+
+        private void SaveWindowSize()
+        {
+            // Save current window size to note properties
+            if (WindowState == WindowState.Normal) // Only save size when not minimized/maximized
+            {
+                _note.WindowWidth = ActualWidth;
+                _note.WindowHeight = ActualHeight;
+                OnNoteChanged(); // Trigger save
             }
         }
 

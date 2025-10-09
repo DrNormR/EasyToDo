@@ -10,6 +10,8 @@ namespace EasyToDo.Models
     {
         private string _title;
         private Color _backgroundColor = Colors.Yellow;
+        private double _windowWidth = 300;
+        private double _windowHeight = 400;
 
         public string Title
         {
@@ -34,6 +36,32 @@ namespace EasyToDo.Models
                 if (_backgroundColor != value)
                 {
                     _backgroundColor = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public double WindowWidth
+        {
+            get => _windowWidth;
+            set
+            {
+                if (_windowWidth != value)
+                {
+                    _windowWidth = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public double WindowHeight
+        {
+            get => _windowHeight;
+            set
+            {
+                if (_windowHeight != value)
+                {
+                    _windowHeight = value;
                     OnPropertyChanged();
                 }
             }
