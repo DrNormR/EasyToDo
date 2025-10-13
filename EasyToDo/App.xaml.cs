@@ -15,13 +15,8 @@ namespace EasyToDo
         {
             base.OnStartup(e);
             
-            // Check for updates in the background after startup
-            _ = Task.Run(async () =>
-            {
-                // Wait a bit to let the main window load first
-                await Task.Delay(2000);
-                await UpdateService.CheckForUpdatesOnStartupAsync();
-            });
+            // Removed automatic update check on startup
+            // Users can manually check for updates using the "Check for Updates" button
         }
     }
 }

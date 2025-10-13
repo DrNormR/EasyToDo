@@ -1048,10 +1048,16 @@ del ""%~f0"" 2>nul
         }
 
         /// <summary>
-        /// Checks for updates silently on startup
+        /// Checks for updates silently on startup - DISABLED
+        /// Users can manually check for updates using the "Check for Updates" button instead
         /// </summary>
         public static async Task CheckForUpdatesOnStartupAsync()
         {
+            // Disabled automatic startup update checks to avoid annoying users
+            // The manual "Check for Updates" button is still available for when users want to check
+            return;
+            
+            /* Original automatic check code commented out:
             try
             {
                 // Only check if it's been more than a day since last check
@@ -1091,45 +1097,7 @@ del ""%~f0"" 2>nul
             {
                 // Silent failure for startup check
             }
-        }
-
-        /// <summary>
-        /// Gets the last update check timestamp
-        /// </summary>
-        private static DateTime GetLastUpdateCheck()
-        {
-            try
-            {
-                var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                var configFile = Path.Combine(appData, "EasyToDo", "update_config.txt");
-                
-                if (File.Exists(configFile))
-                {
-                    var content = File.ReadAllText(configFile);
-                    if (DateTime.TryParse(content, out var date))
-                        return date;
-                }
-            }
-            catch { }
-            
-            return DateTime.MinValue;
-        }
-
-        /// <summary>
-        /// Sets the last update check timestamp
-        /// </summary>
-        private static void SetLastUpdateCheck(DateTime timestamp)
-        {
-            try
-            {
-                var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                var configDir = Path.Combine(appData, "EasyToDo");
-                Directory.CreateDirectory(configDir);
-                
-                var configFile = Path.Combine(configDir, "update_config.txt");
-                File.WriteAllText(configFile, timestamp.ToString("O"));
-            }
-            catch { }
+            */
         }
     }
 
