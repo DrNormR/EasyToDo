@@ -650,8 +650,20 @@ namespace EasyToDo.Views
                 System.Diagnostics.Debug.WriteLine("Manual sync check requested");
                 ShowStatusMessage("🔄 Checking for updates...", TimeSpan.FromSeconds(1));
                 
-                // Force an immediate sync check
-                NoteStorage.ForceCheckSync();
+                // Perform a more thorough sync check for manual requests
+                // This is especially useful after wake-from-sleep scenarios
+                for (int i = 0; i < 3; i++)
+                {
+                    NoteStorage.ForceCheckSync();
+                    if (i < 2) // Don't delay after the last check
+                    {
+                        System.Threading.Thread.Sleep(300); // Brief delay between checks
+                    }
+                }
+                
+                // Also check sync health to ensure monitoring is working
+                var diagnostics = NoteStorage.GetSyncDiagnostics();
+                System.Diagnostics.Debug.WriteLine($"Sync health status:\n{diagnostics}");
                 
                 // Show brief success message
                 ShowStatusMessage("✅ Sync check completed", TimeSpan.FromSeconds(2));
