@@ -734,6 +734,43 @@ namespace EasyToDo.Views
             }
         }
 
+        private void PaperNoteButton_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is Button button && button.DataContext is NoteItem item)
+            {
+                // Only allow note creation for non-heading items
+                if (!item.IsHeading)
+                {
+                    try
+                    {
+                        var popupWindow = new PopupNoteWindow(item);
+                        
+                        // Subscribe to the NoteSaved event
+                        popupWindow.NoteSaved += (s, noteText) =>
+                        {
+                            OnNoteChanged(); // Trigger save when popup note is saved
+                        };
+                        
+                        // Subscribe to the NoteDeleted event
+                        popupWindow.NoteDeleted += (s, args) =>
+                        {
+                            OnNoteChanged(); // Trigger save when popup note is deleted
+                        };
+                        
+                        // Show the popup window
+                        popupWindow.Show();
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Error opening popup note: {ex.Message}");
+                        MessageBox.Show($"Error opening note editor: {ex.Message}", "Error", 
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                }
+                e.Handled = true; // Prevent further event processing
+            }
+        }
+
         private void ItemBorder_DragEnter(object sender, DragEventArgs e)
         {
             if (e.Data.GetDataPresent("NoteItem") && sender is FrameworkElement element)

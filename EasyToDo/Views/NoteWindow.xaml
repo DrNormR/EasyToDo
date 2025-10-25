@@ -116,6 +116,7 @@
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     
                                     <!-- Drag Handle -->
@@ -269,9 +270,51 @@
                                             </TextBox.Style>
                                         </TextBox>
                                     </Grid>
+
+                                    <!-- Paper Note Button - Hidden for headings -->
+                                    <Button Grid.Column="4" 
+                                           Content="📄"
+                                           Width="18"
+                                           Height="18"
+                                           Margin="3,0,0,0"
+                                           PreviewMouseLeftButtonDown="PaperNoteButton_PreviewMouseLeftButtonDown"
+                                           DataContext="{Binding}"
+                                           Background="Transparent"
+                                           BorderThickness="0"
+                                           FontSize="12"
+                                           FontFamily="Segoe UI Emoji"
+                                           VerticalAlignment="Center"
+                                           ToolTip="Add/Edit note">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="Opacity" Value="0.3"/>
+                                                <Setter Property="Visibility" Value="Hidden"/>
+                                                <Setter Property="Foreground" Value="Gray"/>
+                                                <Style.Triggers>
+                                                    <!-- Hide for headings -->
+                                                    <DataTrigger Binding="{Binding IsHeading}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                    <MultiDataTrigger>
+                                                        <MultiDataTrigger.Conditions>
+                                                            <Condition Binding="{Binding IsMouseOver, ElementName=ItemBorder}" Value="True"/>
+                                                            <Condition Binding="{Binding IsHeading}" Value="False"/>
+                                                        </MultiDataTrigger.Conditions>
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </MultiDataTrigger>
+                                                    <DataTrigger Binding="{Binding HasNote}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                        <Setter Property="Opacity" Value="1.0"/>
+                                                        <Setter Property="Foreground" Value="#FF2E7D32"/>
+                                                        <Setter Property="Content" Value="📝"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
                                     
                                     <!-- Delete Button -->
-                                    <Button Grid.Column="4" 
+                                    <Button Grid.Column="5" 
                                            Content="✕"
                                            Width="20"
                                            Height="20"

@@ -1,0 +1,113 @@
+<Window x:Class="EasyToDo.Views.PopupNoteWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Note Editor" 
+        WindowStyle="ToolWindow"
+        ResizeMode="CanResize"
+        Topmost="True"
+        Width="450"
+        Height="350"
+        MinWidth="300"
+        MinHeight="200"
+        Background="#FFF8F8F8"
+        ShowInTaskbar="False">
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header with title -->
+        <Border Grid.Row="0" Background="#FFE8E8E8" Padding="10,5">
+            <TextBlock Text="{Binding ItemText, StringFormat='Note for: {0}'}" 
+                       FontWeight="Bold" 
+                       TextTrimming="CharacterEllipsis"
+                       ToolTip="{Binding ItemText}"/>
+        </Border>
+
+        <!-- Formatting Toolbar -->
+        <Border Grid.Row="1" Background="#FFF0F0F0" Padding="8,4" BorderBrush="#FFDDDDDD" BorderThickness="0,1,0,1">
+            <StackPanel Orientation="Horizontal">
+                <Button Content="&#x2022; Bullet" 
+                        Click="BulletButton_Click"
+                        Padding="8,2"
+                        Margin="0,0,5,0"
+                        Background="Transparent"
+                        BorderBrush="#FF888888"
+                        ToolTip="Add bullet point (Ctrl+B)"
+                        FontSize="11"/>
+                <Button Content="1. Number" 
+                        Click="NumberButton_Click"
+                        Padding="8,2"
+                        Margin="0,0,5,0"
+                        Background="Transparent"
+                        BorderBrush="#FF888888"
+                        ToolTip="Add numbered item (Ctrl+N)"
+                        FontSize="11"/>
+                <Separator Margin="5,0"/>
+                <Button Content="&#x2610; Checkbox" 
+                        Click="CheckboxButton_Click"
+                        Padding="8,2"
+                        Margin="0,0,5,0"
+                        Background="Transparent"
+                        BorderBrush="#FF888888"
+                        ToolTip="Add checkbox (Ctrl+K)"
+                        FontSize="11"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Text Editor -->
+        <ScrollViewer Grid.Row="2" 
+                     VerticalScrollBarVisibility="Auto" 
+                     HorizontalScrollBarVisibility="Auto"
+                     Margin="10">
+            <TextBox x:Name="NoteTextBox"
+                     Text="{Binding NoteText, UpdateSourceTrigger=PropertyChanged}"
+                     Background="White"
+                     BorderBrush="#FFCCCCCC"
+                     BorderThickness="1"
+                     Padding="8"
+                     FontFamily="Consolas, Courier New, monospace"
+                     FontSize="12"
+                     AcceptsReturn="True"
+                     AcceptsTab="True"
+                     TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto"
+                     HorizontalScrollBarVisibility="Auto"
+                     SpellCheck.IsEnabled="True"/>
+        </ScrollViewer>
+
+        <!-- Footer with buttons -->
+        <Border Grid.Row="3" Background="#FFE8E8E8" Padding="10,5">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="&#x1F5D1;&#xFE0F; Delete Note" 
+                        Click="DeleteButton_Click"
+                        Margin="0,0,10,0"
+                        Padding="12,3"
+                        Background="#FFDC3545"
+                        BorderBrush="#FFDC3545"
+                        Foreground="White"
+                        ToolTip="Delete this note completely"/>
+                <Button Content="Clear Text" 
+                        Click="ClearButton_Click"
+                        Margin="0,0,10,0"
+                        Padding="12,3"
+                        Background="Transparent"
+                        BorderBrush="#FFCC6666"
+                        Foreground="#FFCC6666"
+                        ToolTip="Clear all text"/>
+                <Button Content="Save &amp; Close" 
+                        Click="SaveButton_Click"
+                        Padding="15,3"
+                        Background="#FF4CAF50"
+                        BorderBrush="#FF4CAF50"
+                        Foreground="White"
+                        IsDefault="True"
+                        ToolTip="Save and close (Ctrl+S)"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

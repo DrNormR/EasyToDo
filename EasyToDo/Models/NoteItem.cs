@@ -9,6 +9,8 @@ namespace EasyToDo.Models
         private bool _isChecked;
         private bool _isCritical;
         private bool _isHeading;
+        private bool _hasNote;
+        private string _popupNoteText;
 
         public string Text
         {
@@ -65,6 +67,35 @@ namespace EasyToDo.Models
                         IsChecked = false;
                         IsCritical = false;
                     }
+                }
+            }
+        }
+
+        public bool HasNote
+        {
+            get => _hasNote;
+            set
+            {
+                if (_hasNote != value)
+                {
+                    _hasNote = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public string PopupNoteText
+        {
+            get => _popupNoteText;
+            set
+            {
+                if (_popupNoteText != value)
+                {
+                    _popupNoteText = value;
+                    OnPropertyChanged();
+                    
+                    // Automatically set HasNote based on whether there's text
+                    HasNote = !string.IsNullOrWhiteSpace(value);
                 }
             }
         }
