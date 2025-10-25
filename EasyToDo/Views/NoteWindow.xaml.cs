@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using EasyToDo.Models;
 
 namespace EasyToDo.Views
@@ -469,6 +470,9 @@ namespace EasyToDo.Views
             {
                 captured.ReleaseMouseCapture();
             }
+            
+            // Hide all drop indicators when drag ends
+            HideAllDropIndicators();
         }
 
         private void ItemBorder_DragOver(object sender, DragEventArgs e)
@@ -503,6 +507,9 @@ namespace EasyToDo.Views
                     }
                 }
             }
+            
+            // Hide all drop indicators
+            HideAllDropIndicators();
         }
 
         private void CriticalButton_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -517,6 +524,85 @@ namespace EasyToDo.Views
                 }
                 e.Handled = true; // Prevent further event processing
             }
+        }
+
+        private void ItemBorder_DragEnter(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent("NoteItem") && sender is FrameworkElement element)
+            {
+                // Find the drop indicator in this item's template
+                if (element.Parent is StackPanel stackPanel)
+                {
+                    var dropIndicator = stackPanel.Children.OfType<Rectangle>()
+                        .FirstOrDefault(r => r.Name == "DropIndicator");
+                    
+                    if (dropIndicator != null)
+                    {
+                        dropIndicator.Visibility = Visibility.Visible;
+                    }
+                }
+            }
+        }
+
+        private void ItemBorder_DragLeave(object sender, DragEventArgs e)
+        {
+            if (sender is FrameworkElement element)
+            {
+                // Find the drop indicator in this item's template
+                if (element.Parent is StackPanel stackPanel)
+                {
+                    var dropIndicator = stackPanel.Children.OfType<Rectangle>()
+                        .FirstOrDefault(r => r.Name == "DropIndicator");
+                    
+                    if (dropIndicator != null)
+                    {
+                        dropIndicator.Visibility = Visibility.Collapsed;
+                    }
+                }
+            }
+        }
+
+        private void HideAllDropIndicators()
+        {
+            // Find all drop indicators in the ItemsControl and hide them
+            if (ItemsListBox != null)
+            {
+                foreach (var item in ItemsListBox.Items)
+                {
+                    var container = ItemsListBox.ItemContainerGenerator.ContainerFromItem(item) as FrameworkElement;
+                    if (container != null)
+                    {
+                        var stackPanel = FindChild<StackPanel>(container);
+                        if (stackPanel != null)
+                        {
+                            var dropIndicator = stackPanel.Children.OfType<Rectangle>()
+                                .FirstOrDefault(r => r.Name == "DropIndicator");
+                            
+                            if (dropIndicator != null)
+                            {
+                                dropIndicator.Visibility = Visibility.Collapsed;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private T FindChild<T>(DependencyObject parent) where T : DependencyObject
+        {
+            if (parent == null) return null;
+
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is T result)
+                    return result;
+
+                var childOfChild = FindChild<T>(child);
+                if (childOfChild != null)
+                    return childOfChild;
+            }
+            return null;
         }
     }
 }

@@ -84,201 +84,214 @@
                          ItemsSource="{Binding Items}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Border x:Name="ItemBorder" 
-                                Background="Transparent" 
-                                Padding="2"
-                                AllowDrop="True"
-                                PreviewMouseMove="ItemBorder_PreviewMouseMove"
-                                PreviewMouseLeftButtonUp="ItemBorder_PreviewMouseLeftButtonUp"
-                                DragOver="ItemBorder_DragOver"
-                                Drop="ItemBorder_Drop">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                
-                                <!-- Drag Handle -->
-                                  <Canvas Grid.Column="0"
-                                          Width="10"
-                                          Height="14"
-                                          Margin="0,0,5,0"
-                                          Cursor="Hand"
-                                          VerticalAlignment="Center"
-                                          PreviewMouseLeftButtonDown="DragHandle_PreviewMouseLeftButtonDown">
-                                      <Canvas.Style>
-                                          <Style TargetType="Canvas">
-                                              <Setter Property="Visibility" Value="Hidden"/>
-                                              <Style.Triggers>
-                                                  <DataTrigger Binding="{Binding IsMouseOver, ElementName=ItemBorder}" Value="True">
-                                                      <Setter Property="Visibility" Value="Visible"/>
-                                                  </DataTrigger>
-                                              </Style.Triggers>
-                                          </Style>
-                                      </Canvas.Style>
-                                      <!-- Horizontal lines for grip (perfectly spaced) -->
-                                      <Rectangle Width="8" Height="1.5" Fill="#999999" Canvas.Left="1" Canvas.Top="2" RadiusX="0.5" RadiusY="0.5"/>
-                                      <Rectangle Width="8" Height="1.5" Fill="#999999" Canvas.Left="1" Canvas.Top="6" RadiusX="0.5" RadiusY="0.5"/>
-                                      <Rectangle Width="8" Height="1.5" Fill="#999999" Canvas.Left="1" Canvas.Top="10" RadiusX="0.5" RadiusY="0.5"/>
-                                  </Canvas>
-
-                                <!-- Critical Button - Hidden for headings -->
-                                <Button Grid.Column="1" 
-                                       Content="🚨"
-                                       Width="18"
-                                       Height="18"
-                                       Margin="0,0,3,0"
-                                       PreviewMouseLeftButtonDown="CriticalButton_PreviewMouseLeftButtonDown"
-                                       DataContext="{Binding}"
-                                       Background="Transparent"
-                                       BorderThickness="0"
-                                       FontSize="12"
-                                       FontFamily="Segoe UI Emoji"
-                                       VerticalAlignment="Center"
-                                       ToolTip="Mark as critical"
-                                       Foreground="Red">
-                                    <Button.Style>
-                                        <Style TargetType="Button">
-                                            <Setter Property="Opacity" Value="0.3"/>
-                                            <Setter Property="Visibility" Value="Hidden"/>
-                                            <Setter Property="Foreground" Value="Red"/>
-                                            <Style.Triggers>
-                                                <!-- Hide for headings -->
-                                                <DataTrigger Binding="{Binding IsHeading}" Value="True">
-                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                </DataTrigger>
-                                                <MultiDataTrigger>
-                                                    <MultiDataTrigger.Conditions>
-                                                        <Condition Binding="{Binding IsMouseOver, ElementName=ItemBorder}" Value="True"/>
-                                                        <Condition Binding="{Binding IsHeading}" Value="False"/>
-                                                    </MultiDataTrigger.Conditions>
-                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                </MultiDataTrigger>
-                                                <DataTrigger Binding="{Binding IsCritical}" Value="True">
-                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                    <Setter Property="Opacity" Value="1.0"/>
-                                                    <Setter Property="Foreground" Value="DarkRed"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                                </Button>
-
-                                <!-- Checkbox - Hidden for headings -->
-                                <CheckBox Grid.Column="2" 
-                                         IsChecked="{Binding IsChecked, Mode=TwoWay}" 
-                                         Margin="0,0,5,0" 
-                                         PreviewMouseLeftButtonDown="CheckBox_PreviewMouseLeftButtonDown"
-                                         DataContext="{Binding}"
-                                         VerticalAlignment="Center">
-                                    <CheckBox.Style>
-                                        <Style TargetType="CheckBox" BasedOn="{StaticResource CircleCheckBox}">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsHeading}" Value="True">
-                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </CheckBox.Style>
-                                </CheckBox>
-
-                                <!-- Text Content with different margins for headings -->
-                                <Grid Grid.Column="3" Background="Transparent" MouseDown="TextBlock_MouseDown">
-                                    <Grid.Style>
-                                        <Style TargetType="Grid">
-                                            <Setter Property="Margin" Value="0"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsHeading}" Value="True">
-                                                    <Setter Property="Margin" Value="5,0,0,0"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Grid.Style>
+                        <StackPanel>
+                            <!-- Drop indicator line (hidden by default) -->
+                            <Rectangle x:Name="DropIndicator"
+                                     Height="2"
+                                     Fill="#4A90E2"
+                                     Opacity="0.7"
+                                     Margin="10,0"
+                                     Visibility="Collapsed"/>
+                            
+                            <Border x:Name="ItemBorder" 
+                                    Background="Transparent" 
+                                    Padding="2"
+                                    AllowDrop="True"
+                                    PreviewMouseMove="ItemBorder_PreviewMouseMove"
+                                    PreviewMouseLeftButtonUp="ItemBorder_PreviewMouseLeftButtonUp"
+                                    DragOver="ItemBorder_DragOver"
+                                    Drop="ItemBorder_Drop"
+                                    DragEnter="ItemBorder_DragEnter"
+                                    DragLeave="ItemBorder_DragLeave">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
                                     
-                                    <TextBlock Text="{Binding Text}" 
-                                               VerticalAlignment="Top"
-                                               Cursor="IBeam"
-                                               TextWrapping="Wrap"
-                                               FontFamily="Segoe UI Emoji, Segoe UI, Arial Unicode MS"
-                                               TextOptions.TextFormattingMode="Display"
-                                               TextOptions.TextRenderingMode="Auto"
-                                               UseLayoutRounding="True">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
+                                    <!-- Drag Handle -->
+                                      <Canvas Grid.Column="0"
+                                              Width="10"
+                                              Height="14"
+                                              Margin="0,0,5,0"
+                                              Cursor="Hand"
+                                              VerticalAlignment="Center"
+                                              Background="Transparent"
+                                              PreviewMouseLeftButtonDown="DragHandle_PreviewMouseLeftButtonDown">
+                                          <Canvas.Style>
+                                              <Style TargetType="Canvas">
+                                                  <Setter Property="Visibility" Value="Hidden"/>
+                                                  <Style.Triggers>
+                                                      <DataTrigger Binding="{Binding IsMouseOver, ElementName=ItemBorder}" Value="True">
+                                                          <Setter Property="Visibility" Value="Visible"/>
+                                                      </DataTrigger>
+                                                  </Style.Triggers>
+                                              </Style>
+                                          </Canvas.Style>
+                                          <!-- Horizontal lines for grip (perfectly spaced) -->
+                                          <Rectangle Width="8" Height="1.5" Fill="#999999" Canvas.Left="1" Canvas.Top="2" RadiusX="0.5" RadiusY="0.5"/>
+                                          <Rectangle Width="8" Height="1.5" Fill="#999999" Canvas.Left="1" Canvas.Top="6" RadiusX="0.5" RadiusY="0.5"/>
+                                          <Rectangle Width="8" Height="1.5" Fill="#999999" Canvas.Left="1" Canvas.Top="10" RadiusX="0.5" RadiusY="0.5"/>
+                                      </Canvas>
+
+                                    <!-- Critical Button - Hidden for headings -->
+                                    <Button Grid.Column="1" 
+                                           Content="🚨"
+                                           Width="18"
+                                           Height="18"
+                                           Margin="0,0,3,0"
+                                           PreviewMouseLeftButtonDown="CriticalButton_PreviewMouseLeftButtonDown"
+                                           DataContext="{Binding}"
+                                           Background="Transparent"
+                                           BorderThickness="0"
+                                           FontSize="12"
+                                           FontFamily="Segoe UI Emoji"
+                                           VerticalAlignment="Center"
+                                           ToolTip="Mark as critical"
+                                           Foreground="Red">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="Opacity" Value="0.3"/>
+                                                <Setter Property="Visibility" Value="Hidden"/>
+                                                <Setter Property="Foreground" Value="Red"/>
                                                 <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsChecked}" Value="True">
-                                                        <Setter Property="TextDecorations" Value="Strikethrough"/>
+                                                    <!-- Hide for headings -->
+                                                    <DataTrigger Binding="{Binding IsHeading}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
                                                     </DataTrigger>
+                                                    <MultiDataTrigger>
+                                                        <MultiDataTrigger.Conditions>
+                                                            <Condition Binding="{Binding IsMouseOver, ElementName=ItemBorder}" Value="True"/>
+                                                            <Condition Binding="{Binding IsHeading}" Value="False"/>
+                                                        </MultiDataTrigger.Conditions>
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </MultiDataTrigger>
                                                     <DataTrigger Binding="{Binding IsCritical}" Value="True">
-                                                        <Setter Property="FontWeight" Value="Bold"/>
-                                                        <Setter Property="Foreground" Value="#FF8B0000"/>
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding IsHeading}" Value="True">
-                                                        <Setter Property="FontWeight" Value="Bold"/>
-                                                        <Setter Property="FontSize" Value="14"/>
-                                                        <Setter Property="Foreground" Value="#FF333333"/>
-                                                        <Setter Property="Margin" Value="0,5,0,2"/>
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                        <Setter Property="Opacity" Value="1.0"/>
+                                                        <Setter Property="Foreground" Value="DarkRed"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                    <TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}"
-                                             Visibility="Collapsed"
-                                             Name="EditTextBox"
-                                             LostFocus="EditTextBox_LostFocus"
-                                             KeyDown="EditTextBox_KeyDown"
-                                             Background="Transparent"
-                                             BorderThickness="0"
-                                             TextWrapping="Wrap"
-                                             AcceptsReturn="True"
-                                             FontFamily="Segoe UI Emoji, Segoe UI, Arial Unicode MS"
-                                             TextOptions.TextFormattingMode="Display"
-                                             TextOptions.TextRenderingMode="Auto"
-                                             UseLayoutRounding="True">
-                                        <TextBox.Style>
-                                            <Style TargetType="TextBox">
+                                        </Button.Style>
+                                    </Button>
+
+                                    <!-- Checkbox - Hidden for headings -->
+                                    <CheckBox Grid.Column="2" 
+                                             IsChecked="{Binding IsChecked, Mode=TwoWay}" 
+                                             Margin="0,0,5,0" 
+                                             PreviewMouseLeftButtonDown="CheckBox_PreviewMouseLeftButtonDown"
+                                             DataContext="{Binding}"
+                                             VerticalAlignment="Center">
+                                        <CheckBox.Style>
+                                            <Style TargetType="CheckBox" BasedOn="{StaticResource CircleCheckBox}">
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsHeading}" Value="True">
-                                                        <Setter Property="FontWeight" Value="Bold"/>
-                                                        <Setter Property="FontSize" Value="14"/>
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
-                                        </TextBox.Style>
-                                    </TextBox>
+                                        </CheckBox.Style>
+                                    </CheckBox>
+
+                                    <!-- Text Content with different margins for headings -->
+                                    <Grid Grid.Column="3" Background="Transparent" MouseDown="TextBlock_MouseDown">
+                                        <Grid.Style>
+                                            <Style TargetType="Grid">
+                                                <Setter Property="Margin" Value="0"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsHeading}" Value="True">
+                                                        <Setter Property="Margin" Value="5,0,0,0"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Grid.Style>
+                                        
+                                        <TextBlock Text="{Binding Text}" 
+                                                   VerticalAlignment="Top"
+                                                   Cursor="IBeam"
+                                                   TextWrapping="Wrap"
+                                                   FontFamily="Segoe UI Emoji, Segoe UI, Arial Unicode MS"
+                                                   TextOptions.TextFormattingMode="Display"
+                                                   TextOptions.TextRenderingMode="Auto"
+                                                   UseLayoutRounding="True">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsChecked}" Value="True">
+                                                            <Setter Property="TextDecorations" Value="Strikethrough"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding IsCritical}" Value="True">
+                                                            <Setter Property="FontWeight" Value="Bold"/>
+                                                            <Setter Property="Foreground" Value="#FF8B0000"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding IsHeading}" Value="True">
+                                                            <Setter Property="FontWeight" Value="Bold"/>
+                                                            <Setter Property="FontSize" Value="14"/>
+                                                            <Setter Property="Foreground" Value="#FF333333"/>
+                                                            <Setter Property="Margin" Value="0,5,0,2"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}"
+                                                 Visibility="Collapsed"
+                                                 Name="EditTextBox"
+                                                 LostFocus="EditTextBox_LostFocus"
+                                                 KeyDown="EditTextBox_KeyDown"
+                                                 Background="Transparent"
+                                                 BorderThickness="0"
+                                                 TextWrapping="Wrap"
+                                                 AcceptsReturn="True"
+                                                 FontFamily="Segoe UI Emoji, Segoe UI, Arial Unicode MS"
+                                                 TextOptions.TextFormattingMode="Display"
+                                                 TextOptions.TextRenderingMode="Auto"
+                                                 UseLayoutRounding="True">
+                                            <TextBox.Style>
+                                                <Style TargetType="TextBox">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsHeading}" Value="True">
+                                                            <Setter Property="FontWeight" Value="Bold"/>
+                                                            <Setter Property="FontSize" Value="14"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBox.Style>
+                                        </TextBox>
+                                    </Grid>
+                                    
+                                    <!-- Delete Button -->
+                                    <Button Grid.Column="4" 
+                                           Content="✕"
+                                           Width="20"
+                                           Height="20"
+                                           Margin="5,0,0,0"
+                                           PreviewMouseLeftButtonDown="DeleteItem_PreviewMouseLeftButtonDown"
+                                           DataContext="{Binding}"
+                                           Background="Transparent"
+                                           BorderThickness="0"
+                                           Foreground="Red"
+                                           FontWeight="Bold"
+                                           FontSize="14"
+                                           VerticalAlignment="Center">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="Visibility" Value="Hidden"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsMouseOver, ElementName=ItemBorder}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
                                 </Grid>
-                                
-                                <!-- Delete Button -->
-                                <Button Grid.Column="4" 
-                                       Content="✕"
-                                       Width="20"
-                                       Height="20"
-                                       Margin="5,0,0,0"
-                                       PreviewMouseLeftButtonDown="DeleteItem_PreviewMouseLeftButtonDown"
-                                       DataContext="{Binding}"
-                                       Background="Transparent"
-                                       BorderThickness="0"
-                                       Foreground="Red"
-                                       FontWeight="Bold"
-                                       FontSize="14"
-                                       VerticalAlignment="Center">
-                                    <Button.Style>
-                                        <Style TargetType="Button">
-                                            <Setter Property="Visibility" Value="Hidden"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsMouseOver, ElementName=ItemBorder}" Value="True">
-                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                                </Button>
-                            </Grid>
-                        </Border>
+                            </Border>
+                        </StackPanel>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
