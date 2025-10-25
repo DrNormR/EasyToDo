@@ -196,12 +196,13 @@
                                     </Grid.Style>
                                     
                                     <TextBlock Text="{Binding Text}" 
-                                             VerticalAlignment="Center"
-                                             Cursor="IBeam"
-                                             FontFamily="Segoe UI Emoji, Segoe UI, Arial Unicode MS"
-                                             TextOptions.TextFormattingMode="Display"
-                                             TextOptions.TextRenderingMode="Auto"
-                                             UseLayoutRounding="True">
+                                               VerticalAlignment="Top"
+                                               Cursor="IBeam"
+                                               TextWrapping="Wrap"
+                                               FontFamily="Segoe UI Emoji, Segoe UI, Arial Unicode MS"
+                                               TextOptions.TextFormattingMode="Display"
+                                               TextOptions.TextRenderingMode="Auto"
+                                               UseLayoutRounding="True">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
                                                 <Style.Triggers>
@@ -229,6 +230,8 @@
                                              KeyDown="EditTextBox_KeyDown"
                                              Background="Transparent"
                                              BorderThickness="0"
+                                             TextWrapping="Wrap"
+                                             AcceptsReturn="True"
                                              FontFamily="Segoe UI Emoji, Segoe UI, Arial Unicode MS"
                                              TextOptions.TextFormattingMode="Display"
                                              TextOptions.TextRenderingMode="Auto"
@@ -323,11 +326,14 @@
                      KeyDown="NewItemTextBox_KeyDown"
                      GotFocus="NewItemTextBox_GotFocus"
                      LostFocus="NewItemTextBox_LostFocus"
-                     Text="Type here to add a new item..."
+                     Text="Type here to add a new item... (Ctrl+Enter to add)"
+                     TextWrapping="Wrap"
+                     AcceptsReturn="True"
                      FontFamily="Segoe UI Emoji, Segoe UI, Arial Unicode MS"
                      TextOptions.TextFormattingMode="Display"
                      TextOptions.TextRenderingMode="Auto"
-                     UseLayoutRounding="True"/>
+                     UseLayoutRounding="True"
+                     ToolTip="Enter adds single-line items, Enter creates new lines in multi-line text, Ctrl+Enter always adds item"/>
         </Grid>
     </Grid>
 </Window>

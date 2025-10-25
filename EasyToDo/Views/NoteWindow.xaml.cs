@@ -182,39 +182,57 @@ namespace EasyToDo.Views
 
         private void NewItemTextBox_KeyDown(object sender, KeyEventArgs e)
         {
-            if (e.Key == Key.Enter && sender is TextBox textBox)
+            if (sender is TextBox textBox)
             {
-                if (!string.IsNullOrWhiteSpace(textBox.Text) && 
-                    textBox.Text != "Type here to add a new item..." &&
-                    textBox.Text != "Type heading text...")
+                if (e.Key == Key.Enter)
                 {
-                    var newItem = new NoteItem 
-                    { 
-                        Text = textBox.Text, 
-                        IsChecked = false, 
-                        IsCritical = false,
-                        IsHeading = _nextItemIsHeading
-                    };
+                    bool isCtrlPressed = (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control;
+                    bool isSingleLine = !textBox.Text.Contains('\n') && !textBox.Text.Contains('\r');
                     
-                    _note.Items.Add(newItem);
-                    textBox.Text = string.Empty;
-                    
-                    // Reset heading mode after adding item
-                    if (_nextItemIsHeading)
+                    // Add item if: Ctrl+Enter pressed, OR regular Enter with single-line text
+                    if (isCtrlPressed || isSingleLine)
                     {
-                        _nextItemIsHeading = false;
-                        UpdateHeadingButtonAppearance();
+                        if (!string.IsNullOrWhiteSpace(textBox.Text) && 
+                            textBox.Text != "Type here to add a new item..." &&
+                            textBox.Text != "Type heading text..." &&
+                            textBox.Text != "Type here to add a new item... (Ctrl+Enter to add)" &&
+                            textBox.Text != "Type heading text... (Ctrl+Enter to add)")
+                        {
+                            var newItem = new NoteItem 
+                            { 
+                                Text = textBox.Text.Trim(), 
+                                IsChecked = false, 
+                                IsCritical = false,
+                                IsHeading = _nextItemIsHeading
+                            };
+                            
+                            _note.Items.Add(newItem);
+                            textBox.Text = string.Empty;
+                            
+                            // Reset heading mode after adding item
+                            if (_nextItemIsHeading)
+                            {
+                                _nextItemIsHeading = false;
+                                UpdateHeadingButtonAppearance();
+                            }
+                            
+                            e.Handled = true; // Prevent the beep sound
+                            OnNoteChanged(); // Notify that the note has changed
+                        }
+                        else if (isSingleLine)
+                        {
+                            // For empty text with single line, still handle to prevent beep
+                            e.Handled = true;
+                        }
                     }
-                    
-                    e.Handled = true; // Prevent the beep sound
-                    OnNoteChanged(); // Notify that the note has changed
+                    // If it's multi-line text and no Ctrl, let Enter create a new line (don't handle)
                 }
-            }
-            else if (e.Key == Key.Escape && _nextItemIsHeading)
-            {
-                // Cancel heading mode on Escape
-                _nextItemIsHeading = false;
-                UpdateHeadingButtonAppearance();
+                else if (e.Key == Key.Escape && _nextItemIsHeading)
+                {
+                    // Cancel heading mode on Escape
+                    _nextItemIsHeading = false;
+                    UpdateHeadingButtonAppearance();
+                }
             }
         }
 
@@ -230,7 +248,7 @@ namespace EasyToDo.Views
                 // Update placeholder text
                 if (NewItemTextBox.Text == "Type here to add a new item...")
                 {
-                    NewItemTextBox.Text = "Type heading text...";
+                    NewItemTextBox.Text = "Type heading text... (Ctrl+Enter to add)";
                 }
             }
             else
@@ -241,9 +259,9 @@ namespace EasyToDo.Views
                 HeadingButton.ToolTip = "Add heading";
                 
                 // Reset placeholder text
-                if (NewItemTextBox.Text == "Type heading text...")
+                if (NewItemTextBox.Text == "Type heading text... (Ctrl+Enter to add)")
                 {
-                    NewItemTextBox.Text = "Type here to add a new item...";
+                    NewItemTextBox.Text = "Type here to add a new item... (Ctrl+Enter to add)";
                 }
             }
         }
@@ -252,7 +270,10 @@ namespace EasyToDo.Views
         {
             if (sender is TextBox textBox)
             {
-                if (textBox.Text == "Type here to add a new item..." || textBox.Text == "Type heading text...")
+                if (textBox.Text == "Type here to add a new item... (Ctrl+Enter to add)" || 
+                    textBox.Text == "Type heading text... (Ctrl+Enter to add)" ||
+                    textBox.Text == "Type here to add a new item..." || 
+                    textBox.Text == "Type heading text...")
                 {
                     textBox.Text = string.Empty;
                     textBox.FontStyle = FontStyles.Normal;
@@ -266,11 +287,11 @@ namespace EasyToDo.Views
             {
                 if (_nextItemIsHeading)
                 {
-                    textBox.Text = "Type heading text...";
+                    textBox.Text = "Type heading text... (Ctrl+Enter to add)";
                 }
                 else
                 {
-                    textBox.Text = "Type here to add a new item...";
+                    textBox.Text = "Type here to add a new item... (Ctrl+Enter to add)";
                 }
                 textBox.FontStyle = FontStyles.Italic;
             }
@@ -341,7 +362,8 @@ namespace EasyToDo.Views
         {
             if (sender is TextBox textBox)
             {
-                if (e.Key == Key.Enter)
+                // Use Ctrl+Enter to save when editing multi-line text, allowing Enter for new lines
+                if (e.Key == Key.Enter && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
                 {
                     var parent = textBox.Parent as Grid;
                     if (parent != null)
@@ -351,7 +373,7 @@ namespace EasyToDo.Views
                         {
                             textBox.Visibility = Visibility.Collapsed;
                             textBlock.Visibility = Visibility.Visible;
-                            OnNoteChanged(); // Save on Enter
+                            OnNoteChanged(); // Save on Ctrl+Enter
                         }
                     }
                     e.Handled = true;
