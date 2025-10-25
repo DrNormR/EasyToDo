@@ -284,7 +284,7 @@
                                            FontSize="12"
                                            FontFamily="Segoe UI Emoji"
                                            VerticalAlignment="Center"
-                                           ToolTip="Add/Edit note">
+                                           ToolTip="Add/Edit text attachment">
                                         <Button.Style>
                                             <Style TargetType="Button">
                                                 <Setter Property="Opacity" Value="0.3"/>
@@ -302,7 +302,7 @@
                                                         </MultiDataTrigger.Conditions>
                                                         <Setter Property="Visibility" Value="Visible"/>
                                                     </MultiDataTrigger>
-                                                    <DataTrigger Binding="{Binding HasNote}" Value="True">
+                                                    <DataTrigger Binding="{Binding HasTextAttachment}" Value="True">
                                                         <Setter Property="Visibility" Value="Visible"/>
                                                         <Setter Property="Opacity" Value="1.0"/>
                                                         <Setter Property="Foreground" Value="#FF2E7D32"/>

@@ -9,8 +9,8 @@ namespace EasyToDo.Models
         private bool _isChecked;
         private bool _isCritical;
         private bool _isHeading;
-        private bool _hasNote;
-        private string _popupNoteText;
+        private bool _hasTextAttachment;
+        private string _textAttachment;
 
         public string Text
         {
@@ -71,31 +71,31 @@ namespace EasyToDo.Models
             }
         }
 
-        public bool HasNote
+        public bool HasTextAttachment
         {
-            get => _hasNote;
+            get => _hasTextAttachment;
             set
             {
-                if (_hasNote != value)
+                if (_hasTextAttachment != value)
                 {
-                    _hasNote = value;
+                    _hasTextAttachment = value;
                     OnPropertyChanged();
                 }
             }
         }
 
-        public string PopupNoteText
+        public string TextAttachment
         {
-            get => _popupNoteText;
+            get => _textAttachment;
             set
             {
-                if (_popupNoteText != value)
+                if (_textAttachment != value)
                 {
-                    _popupNoteText = value;
+                    _textAttachment = value;
                     OnPropertyChanged();
                     
-                    // Automatically set HasNote based on whether there's text
-                    HasNote = !string.IsNullOrWhiteSpace(value);
+                    // Automatically set HasTextAttachment based on whether there's text
+                    HasTextAttachment = !string.IsNullOrWhiteSpace(value);
                 }
             }
         }

@@ -738,32 +738,32 @@ namespace EasyToDo.Views
         {
             if (sender is Button button && button.DataContext is NoteItem item)
             {
-                // Only allow note creation for non-heading items
+                // Only allow text attachment creation for non-heading items
                 if (!item.IsHeading)
                 {
                     try
                     {
-                        var popupWindow = new PopupNoteWindow(item);
+                        var textAttachmentWindow = new PopupNoteWindow(item);
                         
-                        // Subscribe to the NoteSaved event
-                        popupWindow.NoteSaved += (s, noteText) =>
+                        // Subscribe to the AttachmentSaved event
+                        textAttachmentWindow.AttachmentSaved += (s, attachmentText) =>
                         {
-                            OnNoteChanged(); // Trigger save when popup note is saved
+                            OnNoteChanged(); // Trigger save when text attachment is saved
                         };
                         
-                        // Subscribe to the NoteDeleted event
-                        popupWindow.NoteDeleted += (s, args) =>
+                        // Subscribe to the AttachmentDeleted event
+                        textAttachmentWindow.AttachmentDeleted += (s, args) =>
                         {
-                            OnNoteChanged(); // Trigger save when popup note is deleted
+                            OnNoteChanged(); // Trigger save when text attachment is deleted
                         };
                         
-                        // Show the popup window
-                        popupWindow.Show();
+                        // Show the text attachment editor window
+                        textAttachmentWindow.Show();
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Error opening popup note: {ex.Message}");
-                        MessageBox.Show($"Error opening note editor: {ex.Message}", "Error", 
+                        System.Diagnostics.Debug.WriteLine($"Error opening text attachment editor: {ex.Message}");
+                        MessageBox.Show($"Error opening text attachment editor: {ex.Message}", "Error", 
                             MessageBoxButton.OK, MessageBoxImage.Error);
                     }
                 }

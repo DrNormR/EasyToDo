@@ -550,7 +550,9 @@ namespace EasyToDo.Views
                         Text = i.Text, 
                         IsChecked = i.IsChecked, 
                         IsCritical = i.IsCritical,
-                        IsHeading = i.IsHeading
+                        IsHeading = i.IsHeading,
+                        TextAttachment = i.TextAttachment,
+                        HasTextAttachment = i.HasTextAttachment
                     }))
                 };
                 Notes.Add(copy);

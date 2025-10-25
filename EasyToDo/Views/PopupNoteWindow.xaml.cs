@@ -10,21 +10,21 @@ namespace EasyToDo.Views
     public partial class PopupNoteWindow : Window, INotifyPropertyChanged
     {
         private readonly NoteItem _noteItem;
-        private string _noteText;
+        private string _attachmentText;
         private string _itemText;
 
-        public event EventHandler<string> NoteSaved;
-        public event EventHandler NoteDeleted;
+        public event EventHandler<string> AttachmentSaved;
+        public event EventHandler AttachmentDeleted;
         public event PropertyChangedEventHandler PropertyChanged;
 
         public string NoteText
         {
-            get => _noteText;
+            get => _attachmentText;
             set
             {
-                if (_noteText != value)
+                if (_attachmentText != value)
                 {
-                    _noteText = value;
+                    _attachmentText = value;
                     OnPropertyChanged();
                 }
             }
@@ -52,9 +52,9 @@ namespace EasyToDo.Views
             
             // Initialize properties
             ItemText = noteItem.Text;
-            NoteText = noteItem.PopupNoteText ?? string.Empty;
+            NoteText = noteItem.TextAttachment ?? string.Empty;
             
-            // Set up keyboard shortcuts
+            // Set up keyboard shortcuts (only window-level, not TextBox level)
             KeyDown += PopupNoteWindow_KeyDown;
             
             // Focus the text box when window loads
@@ -109,6 +109,177 @@ namespace EasyToDo.Views
             {
                 Close();
                 e.Handled = true;
+            }
+        }
+
+        private void NoteTextBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                HandleEnterKeyForLists(e);
+            }
+        }
+
+        private void HandleEnterKeyForLists(KeyEventArgs e)
+        {
+            try
+            {
+                var textBox = NoteTextBox;
+                if (textBox == null) return;
+
+                var text = textBox.Text ?? string.Empty;
+                var caretIndex = textBox.CaretIndex;
+                
+                // Get the current line text where the cursor is
+                string currentLine = GetCurrentLine(text, caretIndex);
+                string trimmedLine = currentLine.Trim();
+                
+                System.Diagnostics.Debug.WriteLine($"Current line: '{currentLine}', Trimmed: '{trimmedLine}'");
+                
+                // Check if current line is a bullet point
+                if (trimmedLine.StartsWith("• "))
+                {
+                    var content = trimmedLine.Substring(2).Trim();
+                    if (string.IsNullOrEmpty(content))
+                    {
+                        // Empty bullet line - stop the list
+                        RemoveCurrentListMarker(text, caretIndex, currentLine);
+                        e.Handled = true;
+                    }
+                    else
+                    {
+                        // Continue bullet list
+                        InsertNewLineWithMarker("\n• ");
+                        e.Handled = true;
+                    }
+                }
+                // Check if current line is a numbered item
+                else if (IsNumberedLine(trimmedLine))
+                {
+                    var content = GetNumberedLineContent(trimmedLine);
+                    if (string.IsNullOrEmpty(content))
+                    {
+                        // Empty numbered line - stop the list
+                        RemoveCurrentListMarker(text, caretIndex, currentLine);
+                        e.Handled = true;
+                    }
+                    else
+                    {
+                        // Continue numbered list with next number
+                        var currentNumber = GetNumberFromLine(trimmedLine);
+                        var nextNumber = currentNumber + 1;
+                        InsertNewLineWithMarker($"\n{nextNumber}. ");
+                        e.Handled = true;
+                    }
+                }
+                // Check if current line is a checkbox
+                else if (trimmedLine.StartsWith("? ") || trimmedLine.StartsWith("? "))
+                {
+                    var content = trimmedLine.Substring(2).Trim();
+                    if (string.IsNullOrEmpty(content))
+                    {
+                        // Empty checkbox line - stop the list
+                        RemoveCurrentListMarker(text, caretIndex, currentLine);
+                        e.Handled = true;
+                    }
+                    else
+                    {
+                        // Continue checkbox list
+                        InsertNewLineWithMarker("\n? ");
+                        e.Handled = true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error handling Enter key: {ex.Message}");
+                // Let the default behavior happen if there's an error
+            }
+        }
+
+        private string GetCurrentLine(string text, int caretIndex)
+        {
+            if (string.IsNullOrEmpty(text)) return string.Empty;
+            
+            // Find the start of the current line
+            int lineStart = text.LastIndexOf('\n', Math.Max(0, caretIndex - 1));
+            if (lineStart == -1) lineStart = 0;
+            else lineStart++; // Move past the \n character
+            
+            // Find the end of the current line
+            int lineEnd = text.IndexOf('\n', caretIndex);
+            if (lineEnd == -1) lineEnd = text.Length;
+            
+            return text.Substring(lineStart, lineEnd - lineStart).TrimEnd('\r');
+        }
+
+        private bool IsNumberedLine(string line)
+        {
+            if (line.Length < 3) return false;
+            return char.IsDigit(line[0]) && line[1] == '.' && line[2] == ' ';
+        }
+
+        private string GetNumberedLineContent(string line)
+        {
+            if (!IsNumberedLine(line)) return line;
+            return line.Substring(3).Trim();
+        }
+
+        private int GetNumberFromLine(string line)
+        {
+            if (!IsNumberedLine(line)) return 1;
+            if (int.TryParse(line.Substring(0, 1), out int number))
+                return number;
+            return 1;
+        }
+
+        private void InsertNewLineWithMarker(string marker)
+        {
+            try
+            {
+                var currentText = NoteText ?? string.Empty;
+                var caretIndex = NoteTextBox.CaretIndex;
+                var newText = currentText.Insert(caretIndex, marker);
+                NoteText = newText;
+                
+                // Move cursor to end of inserted text
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    NoteTextBox.CaretIndex = caretIndex + marker.Length;
+                    NoteTextBox.Focus();
+                }));
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error inserting new line with marker: {ex.Message}");
+            }
+        }
+
+        private void RemoveCurrentListMarker(string text, int caretIndex, string currentLine)
+        {
+            try
+            {
+                // Find the start of the current line
+                int lineStart = text.LastIndexOf('\n', Math.Max(0, caretIndex - 1));
+                if (lineStart == -1) lineStart = 0;
+                else lineStart++; // Move past the \n character
+                
+                // Remove the list marker from the current line, leaving just a newline
+                var beforeLine = text.Substring(0, lineStart);
+                var afterLine = text.Substring(caretIndex);
+                
+                NoteText = beforeLine + afterLine;
+                
+                // Position cursor at the beginning of the now-empty line
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    NoteTextBox.CaretIndex = lineStart;
+                    NoteTextBox.Focus();
+                }));
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error removing list marker: {ex.Message}");
             }
         }
 
@@ -211,25 +382,25 @@ namespace EasyToDo.Views
 
         private void DeleteButton_Click(object sender, RoutedEventArgs e)
         {
-            var result = MessageBox.Show("Are you sure you want to delete this note completely?\n\nThis action cannot be undone.", 
-                "Delete Note", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            var result = MessageBox.Show("Are you sure you want to delete this text attachment completely?\n\nThis action cannot be undone.", 
+                "Delete Text Attachment", MessageBoxButton.YesNo, MessageBoxImage.Warning);
             
             if (result == MessageBoxResult.Yes)
             {
                 try
                 {
-                    // Clear the note from the item
-                    _noteItem.PopupNoteText = null;
-                    _noteItem.HasNote = false;
+                    // Clear the attachment from the item
+                    _noteItem.TextAttachment = null;
+                    _noteItem.HasTextAttachment = false;
                     
                     // Raise event to notify parent
-                    NoteDeleted?.Invoke(this, EventArgs.Empty);
+                    AttachmentDeleted?.Invoke(this, EventArgs.Empty);
                     
                     Close();
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Error deleting note: {ex.Message}", "Delete Error", 
+                    MessageBox.Show($"Error deleting text attachment: {ex.Message}", "Delete Error", 
                         MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
@@ -240,16 +411,16 @@ namespace EasyToDo.Views
             try
             {
                 // Update the note item
-                _noteItem.PopupNoteText = string.IsNullOrWhiteSpace(NoteText) ? null : NoteText;
+                _noteItem.TextAttachment = string.IsNullOrWhiteSpace(NoteText) ? null : NoteText;
                 
                 // Raise event to notify parent
-                NoteSaved?.Invoke(this, NoteText);
+                AttachmentSaved?.Invoke(this, NoteText);
                 
                 Close();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error saving note: {ex.Message}", "Save Error", 
+                MessageBox.Show($"Error saving text attachment: {ex.Message}", "Save Error", 
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
