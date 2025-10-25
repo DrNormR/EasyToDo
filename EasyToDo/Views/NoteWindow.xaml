@@ -40,6 +40,12 @@
         </Grid.RowDefinitions>
 
         <DockPanel Grid.Row="0" Name="TitleBar" LastChildFill="True">
+            <DockPanel.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="🔄 Refresh Note" Click="RefreshNote_Click" ToolTip="Refresh note if it becomes unresponsive"/>
+                    <MenuItem Header="🏥 Health Check" Click="HealthCheck_Click" ToolTip="Run manual health check"/>
+                </ContextMenu>
+            </DockPanel.ContextMenu>
             <Button x:Name="PinButton"
                     Content="&#x1F4CC;"
                     Width="20"

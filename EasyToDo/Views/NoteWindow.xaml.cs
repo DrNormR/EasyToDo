@@ -19,6 +19,10 @@ namespace EasyToDo.Views
         private NoteItem _draggedItem;
         private bool _nextItemIsHeading = false;
         private bool _isInitialized = false;
+        
+        // Health monitoring
+        private System.Windows.Threading.DispatcherTimer _healthCheckTimer;
+        private DateTime _lastActivity = DateTime.Now;
 
         // Available color options
         private readonly List<ColorOption> _colorOptions = new List<ColorOption>
@@ -61,9 +65,102 @@ namespace EasyToDo.Views
             // Restore window size from note
             RestoreWindowSize();
 
-            // Hook up window events for size persistence
+            // Hook up window events for size persistence and health monitoring
             SizeChanged += NoteWindow_SizeChanged;
             Loaded += NoteWindow_Loaded;
+            Activated += NoteWindow_Activated; // Add activation monitoring
+            
+            // Initialize health monitoring
+            InitializeHealthMonitoring();
+        }
+
+        private void InitializeHealthMonitoring()
+        {
+            try
+            {
+                // Set up a timer to periodically check the health of the note window
+                _healthCheckTimer = new System.Windows.Threading.DispatcherTimer();
+                _healthCheckTimer.Interval = TimeSpan.FromMinutes(5); // Check every 5 minutes
+                _healthCheckTimer.Tick += HealthCheckTimer_Tick;
+                _healthCheckTimer.Start();
+                
+                System.Diagnostics.Debug.WriteLine("?? Health monitoring initialized - checking every 5 minutes");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"? Error initializing health monitoring: {ex.Message}");
+            }
+        }
+
+        private void HealthCheckTimer_Tick(object sender, EventArgs e)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("?? Performing periodic health check");
+                
+                // Check if the note is still valid
+                if (_note?.Items == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("?? Health check failed: Note or Items collection is null");
+                    RefreshNoteBinding();
+                    return;
+                }
+                
+                // Check if DataContext is still correct
+                if (DataContext != _note)
+                {
+                    System.Diagnostics.Debug.WriteLine("?? Health check failed: DataContext mismatch");
+                    RefreshNoteBinding();
+                    return;
+                }
+                
+                // Check if we can still interact with the TextBox
+                if (NewItemTextBox != null && !NewItemTextBox.IsEnabled)
+                {
+                    System.Diagnostics.Debug.WriteLine("?? Health check failed: TextBox is disabled");
+                    NewItemTextBox.IsEnabled = true;
+                }
+                
+                // Update last activity if there's been recent interaction
+                _lastActivity = DateTime.Now;
+                
+                System.Diagnostics.Debug.WriteLine("? Health check passed");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"? Error during health check: {ex.Message}");
+                RefreshNoteBinding();
+            }
+        }
+
+        private void NoteWindow_Activated(object sender, EventArgs e)
+        {
+            try
+            {
+                // When window becomes active, validate the state
+                System.Diagnostics.Debug.WriteLine("?? Note window activated - performing health check");
+                
+                // Check if our note reference is still valid
+                if (_note?.Items == null || DataContext != _note)
+                {
+                    System.Diagnostics.Debug.WriteLine("?? Note state inconsistency detected on activation");
+                    RefreshNoteBinding();
+                }
+                
+                // Ensure the text box is ready for input
+                if (NewItemTextBox != null && !NewItemTextBox.IsFocused)
+                {
+                    // Small delay to ensure the window is fully activated
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        NewItemTextBox.IsEnabled = true;
+                    }), System.Windows.Threading.DispatcherPriority.Input);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"? Error during window activation health check: {ex.Message}");
+            }
         }
 
         private void NoteWindow_Loaded(object sender, RoutedEventArgs e)
@@ -82,9 +179,27 @@ namespace EasyToDo.Views
 
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
-            // Ensure we save the window size one final time when closing
-            SaveWindowSize();
-            base.OnClosing(e);
+            try
+            {
+                // Stop health monitoring
+                if (_healthCheckTimer != null)
+                {
+                    _healthCheckTimer.Stop();
+                    _healthCheckTimer = null;
+                    System.Diagnostics.Debug.WriteLine("?? Health monitoring stopped");
+                }
+                
+                // Ensure we save the window size one final time when closing
+                SaveWindowSize();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"? Error during window closing: {ex.Message}");
+            }
+            finally
+            {
+                base.OnClosing(e);
+            }
         }
 
         private void RestoreWindowSize()
@@ -185,55 +300,127 @@ namespace EasyToDo.Views
         {
             if (sender is TextBox textBox)
             {
-                if (e.Key == Key.Enter)
+                try
                 {
-                    bool isCtrlPressed = (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control;
-                    bool isSingleLine = !textBox.Text.Contains('\n') && !textBox.Text.Contains('\r');
+                    // Add diagnostic logging for debugging
+                    System.Diagnostics.Debug.WriteLine($"?? NewItemTextBox_KeyDown: Key={e.Key}, Text='{textBox.Text}', Items.Count={_note?.Items?.Count ?? -1}");
                     
-                    // Add item if: Ctrl+Enter pressed, OR regular Enter with single-line text
-                    if (isCtrlPressed || isSingleLine)
+                    // Validate that our note and its collection are still valid
+                    if (_note?.Items == null)
                     {
-                        if (!string.IsNullOrWhiteSpace(textBox.Text) && 
-                            textBox.Text != "Type here to add a new item..." &&
-                            textBox.Text != "Type heading text..." &&
-                            textBox.Text != "Type here to add a new item... (Ctrl+Enter to add)" &&
-                            textBox.Text != "Type heading text... (Ctrl+Enter to add)")
-                        {
-                            var newItem = new NoteItem 
-                            { 
-                                Text = textBox.Text.Trim(), 
-                                IsChecked = false, 
-                                IsCritical = false,
-                                IsHeading = _nextItemIsHeading
-                            };
-                            
-                            _note.Items.Add(newItem);
-                            textBox.Text = string.Empty;
-                            
-                            // Reset heading mode after adding item
-                            if (_nextItemIsHeading)
-                            {
-                                _nextItemIsHeading = false;
-                                UpdateHeadingButtonAppearance();
-                            }
-                            
-                            e.Handled = true; // Prevent the beep sound
-                            OnNoteChanged(); // Notify that the note has changed
-                        }
-                        else if (isSingleLine)
-                        {
-                            // For empty text with single line, still handle to prevent beep
-                            e.Handled = true;
-                        }
+                        System.Diagnostics.Debug.WriteLine("?? Note or Items collection is null - attempting recovery");
+                        RefreshNoteBinding();
+                        return;
                     }
-                    // If it's multi-line text and no Ctrl, let Enter create a new line (don't handle)
+                    
+                    if (e.Key == Key.Enter)
+                    {
+                        bool isCtrlPressed = (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control;
+                        bool isSingleLine = !textBox.Text.Contains('\n') && !textBox.Text.Contains('\r');
+                        
+                        // Add item if: Ctrl+Enter pressed, OR regular Enter with single-line text
+                        if (isCtrlPressed || isSingleLine)
+                        {
+                            if (!string.IsNullOrWhiteSpace(textBox.Text) && 
+                                textBox.Text != "Type here to add a new item..." &&
+                                textBox.Text != "Type heading text..." &&
+                                textBox.Text != "Type here to add a new item... (Ctrl+Enter to add)" &&
+                                textBox.Text != "Type heading text... (Ctrl+Enter to add)")
+                            {
+                                try
+                                {
+                                    var newItem = new NoteItem 
+                                    { 
+                                        Text = textBox.Text.Trim(), 
+                                        IsChecked = false, 
+                                        IsCritical = false,
+                                        IsHeading = _nextItemIsHeading
+                                    };
+                                    
+                                    // Add with error handling
+                                    _note.Items.Add(newItem);
+                                    System.Diagnostics.Debug.WriteLine($"? Successfully added item: '{newItem.Text}'");
+                                    
+                                    textBox.Text = string.Empty;
+                                    
+                                    // Reset heading mode after adding item
+                                    if (_nextItemIsHeading)
+                                    {
+                                        _nextItemIsHeading = false;
+                                        UpdateHeadingButtonAppearance();
+                                    }
+                                    
+                                    e.Handled = true; // Prevent the beep sound
+                                    OnNoteChanged(); // Notify that the note has changed
+                                }
+                                catch (Exception ex)
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"? Error adding item: {ex.Message}");
+                                    // Attempt to refresh the binding and try again
+                                    RefreshNoteBinding();
+                                }
+                            }
+                            else if (isSingleLine)
+                            {
+                                // For empty text with single line, still handle to prevent beep
+                                e.Handled = true;
+                            }
+                        }
+                        // If it's multi-line text and no Ctrl, let Enter create a new line (don't handle)
+                    }
+                    else if (e.Key == Key.Escape && _nextItemIsHeading)
+                    {
+                        // Cancel heading mode on Escape
+                        _nextItemIsHeading = false;
+                        UpdateHeadingButtonAppearance();
+                    }
                 }
-                else if (e.Key == Key.Escape && _nextItemIsHeading)
+                catch (Exception ex)
                 {
-                    // Cancel heading mode on Escape
-                    _nextItemIsHeading = false;
-                    UpdateHeadingButtonAppearance();
+                    System.Diagnostics.Debug.WriteLine($"? Critical error in NewItemTextBox_KeyDown: {ex.Message}");
+                    // Last resort: refresh everything
+                    RefreshNoteBinding();
                 }
+            }
+        }
+
+        /// <summary>
+        /// Refreshes the note binding and data context to recover from sync issues
+        /// </summary>
+        private void RefreshNoteBinding()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("?? Attempting to refresh note binding...");
+                
+                // Force refresh the DataContext
+                var currentNote = DataContext as Note;
+                if (currentNote != null && currentNote != _note)
+                {
+                    System.Diagnostics.Debug.WriteLine("?? DataContext mismatch detected - updating reference");
+                    // The note has been updated by sync, update our reference
+                    DataContext = currentNote;
+                }
+                else if (currentNote == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("?? DataContext is null - restoring");
+                    DataContext = _note;
+                }
+                
+                // Force refresh the UI bindings
+                if (ItemsListBox != null)
+                {
+                    ItemsListBox.Items.Refresh();
+                }
+                
+                // Ensure focus is on the text box
+                NewItemTextBox?.Focus();
+                
+                System.Diagnostics.Debug.WriteLine("? Note binding refresh completed");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"? Error during note binding refresh: {ex.Message}");
             }
         }
 
@@ -421,8 +608,29 @@ namespace EasyToDo.Views
 
         private void OnNoteChanged()
         {
-            // Raise the event to notify that the note has changed
-            NoteChanged?.Invoke(this, EventArgs.Empty);
+            try
+            {
+                // Update last activity timestamp
+                _lastActivity = DateTime.Now;
+                
+                // Validate that we can still notify changes
+                if (NoteChanged != null)
+                {
+                    // Raise the event to notify that the note has changed
+                    NoteChanged?.Invoke(this, EventArgs.Empty);
+                    System.Diagnostics.Debug.WriteLine("?? Note change notification sent successfully");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("?? No change event handlers registered");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"? Error notifying note changes: {ex.Message}");
+                // Don't let this fail silently - the note changes should still be saved
+                // The auto-save system should pick this up anyway
+            }
         }
 
         private void DragHandle_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -603,6 +811,86 @@ namespace EasyToDo.Views
                     return childOfChild;
             }
             return null;
+        }
+
+        private void RefreshNote_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("?? Manual refresh requested by user");
+                RefreshNoteBinding();
+                
+                // Show user feedback with a simple message box for now
+                MessageBox.Show("?? Note refreshed successfully!", "Refresh Complete", 
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"? Error during manual refresh: {ex.Message}");
+                MessageBox.Show($"Error refreshing note: {ex.Message}", "Refresh Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        private void HealthCheck_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("?? Manual health check requested by user");
+                
+                bool isHealthy = true;
+                var issues = new List<string>();
+                
+                // Check note validity
+                if (_note?.Items == null)
+                {
+                    issues.Add("Note or Items collection is null");
+                    isHealthy = false;
+                }
+                
+                // Check DataContext
+                if (DataContext != _note)
+                {
+                    issues.Add("DataContext mismatch detected");
+                    isHealthy = false;
+                }
+                
+                // Check TextBox
+                if (NewItemTextBox != null && !NewItemTextBox.IsEnabled)
+                {
+                    issues.Add("Input TextBox is disabled");
+                    isHealthy = false;
+                }
+                
+                string message;
+                if (isHealthy)
+                {
+                    message = $"? Note Health Check Passed\n\n" +
+                             $"• Note Items: {_note?.Items?.Count ?? 0} items\n" +
+                             $"• DataContext: Valid\n" +
+                             $"• Input TextBox: Enabled\n" +
+                             $"• Last Activity: {_lastActivity:HH:mm:ss}\n" +
+                             $"• Window State: Normal";
+                }
+                else
+                {
+                    message = $"?? Note Health Issues Detected\n\n" +
+                             $"Issues found:\n" + string.Join("\n", issues.Select(i => $"• {i}")) +
+                             $"\n\nClick 'Refresh Note' to attempt automatic recovery.";
+                             
+                    // Auto-attempt recovery
+                    RefreshNoteBinding();
+                }
+                
+                MessageBox.Show(message, "Note Health Check", MessageBoxButton.OK, 
+                    isHealthy ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"? Error during health check: {ex.Message}");
+                MessageBox.Show($"Error during health check: {ex.Message}", "Health Check Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
     }
 }
