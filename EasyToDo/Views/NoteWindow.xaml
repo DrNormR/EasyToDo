@@ -102,25 +102,28 @@
                                 </Grid.ColumnDefinitions>
                                 
                                 <!-- Drag Handle -->
-                                <TextBlock Grid.Column="0"
-                                         Text="⋮⋮"
-                                         FontSize="14"
-                                         FontWeight="Bold"
-                                         Margin="0,0,5,0"
-                                         Cursor="Hand"
-                                         VerticalAlignment="Center"
-                                         PreviewMouseLeftButtonDown="DragHandle_PreviewMouseLeftButtonDown">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Visibility" Value="Hidden"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsMouseOver, ElementName=ItemBorder}" Value="True">
-                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
+                                  <Canvas Grid.Column="0"
+                                          Width="10"
+                                          Height="14"
+                                          Margin="0,0,5,0"
+                                          Cursor="Hand"
+                                          VerticalAlignment="Center"
+                                          PreviewMouseLeftButtonDown="DragHandle_PreviewMouseLeftButtonDown">
+                                      <Canvas.Style>
+                                          <Style TargetType="Canvas">
+                                              <Setter Property="Visibility" Value="Hidden"/>
+                                              <Style.Triggers>
+                                                  <DataTrigger Binding="{Binding IsMouseOver, ElementName=ItemBorder}" Value="True">
+                                                      <Setter Property="Visibility" Value="Visible"/>
+                                                  </DataTrigger>
+                                              </Style.Triggers>
+                                          </Style>
+                                      </Canvas.Style>
+                                      <!-- Horizontal lines for grip (perfectly spaced) -->
+                                      <Rectangle Width="8" Height="1.5" Fill="#999999" Canvas.Left="1" Canvas.Top="2" RadiusX="0.5" RadiusY="0.5"/>
+                                      <Rectangle Width="8" Height="1.5" Fill="#999999" Canvas.Left="1" Canvas.Top="6" RadiusX="0.5" RadiusY="0.5"/>
+                                      <Rectangle Width="8" Height="1.5" Fill="#999999" Canvas.Left="1" Canvas.Top="10" RadiusX="0.5" RadiusY="0.5"/>
+                                  </Canvas>
 
                                 <!-- Critical Button - Hidden for headings -->
                                 <Button Grid.Column="1" 
