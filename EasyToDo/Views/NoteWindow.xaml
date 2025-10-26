@@ -391,14 +391,13 @@
                      KeyDown="NewItemTextBox_KeyDown"
                      GotFocus="NewItemTextBox_GotFocus"
                      LostFocus="NewItemTextBox_LostFocus"
-                     Text="Type here to add a new item... (Ctrl+Enter to add)"
+                     Text="Type here to add a new item..."
                      TextWrapping="Wrap"
-                     AcceptsReturn="True"
                      FontFamily="Segoe UI Emoji, Segoe UI, Arial Unicode MS"
                      TextOptions.TextFormattingMode="Display"
                      TextOptions.TextRenderingMode="Auto"
                      UseLayoutRounding="True"
-                     ToolTip="Enter adds single-line items, Enter creates new lines in multi-line text, Ctrl+Enter always adds item"/>
+                     ToolTip="Enter to add item, Ctrl+Enter for multi-line text"/>
         </Grid>
     </Grid>
 </Window>
