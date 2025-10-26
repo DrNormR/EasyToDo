@@ -78,7 +78,7 @@
                      VerticalScrollBarVisibility="Auto"
                      HorizontalScrollBarVisibility="Auto"
                      SpellCheck.IsEnabled="True"
-                     KeyDown="NoteTextBox_KeyDown"/>
+                     PreviewKeyDown="NoteTextBox_PreviewKeyDown"/>
         </ScrollViewer>
 
         <!-- Footer with buttons -->

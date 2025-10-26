@@ -54,9 +54,6 @@ namespace EasyToDo.Views
             ItemText = noteItem.Text;
             NoteText = noteItem.TextAttachment ?? string.Empty;
             
-            // Set up keyboard shortcuts (only window-level, not TextBox level)
-            KeyDown += PopupNoteWindow_KeyDown;
-            
             // Focus the text box when window loads
             Loaded += (s, e) => NoteTextBox.Focus();
             
@@ -83,203 +80,256 @@ namespace EasyToDo.Views
             }
         }
 
-        private void PopupNoteWindow_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.S && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
-            {
-                SaveAndClose();
-                e.Handled = true;
-            }
-            else if (e.Key == Key.B && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
-            {
-                InsertBulletPoint();
-                e.Handled = true;
-            }
-            else if (e.Key == Key.N && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
-            {
-                InsertNumberedItem();
-                e.Handled = true;
-            }
-            else if (e.Key == Key.K && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
-            {
-                InsertCheckbox();
-                e.Handled = true;
-            }
-            else if (e.Key == Key.Escape)
-            {
-                Close();
-                e.Handled = true;
-            }
-        }
-
-        private void NoteTextBox_KeyDown(object sender, KeyEventArgs e)
+        private void NoteTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
             {
-                HandleEnterKeyForLists(e);
+                System.Diagnostics.Debug.WriteLine("?? Enter key detected in PreviewKeyDown");
+                
+                if (TryHandleListContinuation())
+                {
+                    System.Diagnostics.Debug.WriteLine("? List continuation handled, preventing default Enter");
+                    e.Handled = true;
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("?? No list detected, allowing normal Enter");
+                }
             }
         }
 
-        private void HandleEnterKeyForLists(KeyEventArgs e)
+        private bool TryHandleListContinuation()
         {
             try
             {
                 var textBox = NoteTextBox;
-                if (textBox == null) return;
+                if (textBox == null) return false;
 
-                var text = textBox.Text ?? string.Empty;
-                var caretIndex = textBox.CaretIndex;
+                // Get current text and cursor position
+                string text = textBox.Text ?? "";
+                int caretIndex = textBox.CaretIndex;
                 
-                // Get the current line text where the cursor is
-                string currentLine = GetCurrentLine(text, caretIndex);
-                string trimmedLine = currentLine.Trim();
+                System.Diagnostics.Debug.WriteLine($"?? Processing text at caret {caretIndex}: '{text}'");
                 
-                System.Diagnostics.Debug.WriteLine($"Current line: '{currentLine}', Trimmed: '{trimmedLine}'");
+                // Find the current line
+                string currentLine = GetLineAtCaret(text, caretIndex);
+                string trimmed = currentLine.Trim();
                 
-                // Check if current line is a bullet point
-                if (trimmedLine.StartsWith("• "))
+                System.Diagnostics.Debug.WriteLine($"?? Current line: '{currentLine}' | Trimmed: '{trimmed}'");
+                
+                // Check for bullet point
+                if (trimmed.StartsWith("• "))
                 {
-                    var content = trimmedLine.Substring(2).Trim();
-                    if (string.IsNullOrEmpty(content))
+                    string content = trimmed.Substring(2);
+                    System.Diagnostics.Debug.WriteLine($"?? Found bullet, content: '{content}'");
+                    
+                    if (string.IsNullOrWhiteSpace(content))
                     {
-                        // Empty bullet line - stop the list
-                        RemoveCurrentListMarker(text, caretIndex, currentLine);
-                        e.Handled = true;
+                        // Remove bullet and don't continue
+                        RemoveBulletFromCurrentLine(text, caretIndex, currentLine);
+                        return true;
                     }
                     else
                     {
-                        // Continue bullet list
-                        InsertNewLineWithMarker("\n• ");
-                        e.Handled = true;
+                        // Add new bullet
+                        InsertAtCaret("\n• ");
+                        return true;
                     }
                 }
-                // Check if current line is a numbered item
-                else if (IsNumberedLine(trimmedLine))
+                
+                // Check for numbered list
+                var numberMatch = System.Text.RegularExpressions.Regex.Match(trimmed, @"^(\d+)\.\s(.*)");
+                if (numberMatch.Success)
                 {
-                    var content = GetNumberedLineContent(trimmedLine);
-                    if (string.IsNullOrEmpty(content))
+                    int currentNumber = int.Parse(numberMatch.Groups[1].Value);
+                    string content = numberMatch.Groups[2].Value;
+                    
+                    System.Diagnostics.Debug.WriteLine($"?? Found number {currentNumber}, content: '{content}'");
+                    
+                    if (string.IsNullOrWhiteSpace(content))
                     {
-                        // Empty numbered line - stop the list
-                        RemoveCurrentListMarker(text, caretIndex, currentLine);
-                        e.Handled = true;
+                        // Remove number and don't continue
+                        RemoveNumberFromCurrentLine(text, caretIndex, currentLine);
+                        return true;
                     }
                     else
                     {
-                        // Continue numbered list with next number
-                        var currentNumber = GetNumberFromLine(trimmedLine);
-                        var nextNumber = currentNumber + 1;
-                        InsertNewLineWithMarker($"\n{nextNumber}. ");
-                        e.Handled = true;
+                        // Add next number
+                        int nextNumber = currentNumber + 1;
+                        InsertAtCaret($"\n{nextNumber}. ");
+                        return true;
                     }
                 }
-                // Check if current line is a checkbox
-                else if (trimmedLine.StartsWith("? ") || trimmedLine.StartsWith("? "))
+                
+                // Check for checkbox
+                if (trimmed.StartsWith("? ") || trimmed.StartsWith("? "))
                 {
-                    var content = trimmedLine.Substring(2).Trim();
-                    if (string.IsNullOrEmpty(content))
+                    string content = trimmed.Substring(2);
+                    System.Diagnostics.Debug.WriteLine($"? Found checkbox, content: '{content}'");
+                    
+                    if (string.IsNullOrWhiteSpace(content))
                     {
-                        // Empty checkbox line - stop the list
-                        RemoveCurrentListMarker(text, caretIndex, currentLine);
-                        e.Handled = true;
+                        // Remove checkbox and don't continue
+                        RemoveCheckboxFromCurrentLine(text, caretIndex, currentLine);
+                        return true;
                     }
                     else
                     {
-                        // Continue checkbox list
-                        InsertNewLineWithMarker("\n? ");
-                        e.Handled = true;
+                        // Add new checkbox
+                        InsertAtCaret("\n? ");
+                        return true;
                     }
                 }
+                
+                return false; // No list found
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error handling Enter key: {ex.Message}");
-                // Let the default behavior happen if there's an error
+                System.Diagnostics.Debug.WriteLine($"? Error in TryHandleListContinuation: {ex.Message}");
+                return false;
             }
         }
 
-        private string GetCurrentLine(string text, int caretIndex)
+        private string GetLineAtCaret(string text, int caretIndex)
         {
-            if (string.IsNullOrEmpty(text)) return string.Empty;
+            if (string.IsNullOrEmpty(text)) return "";
             
-            // Find the start of the current line
+            // Find line start
             int lineStart = text.LastIndexOf('\n', Math.Max(0, caretIndex - 1));
-            if (lineStart == -1) lineStart = 0;
-            else lineStart++; // Move past the \n character
+            if (lineStart < 0) lineStart = 0;
+            else lineStart++; // Skip the \n
             
-            // Find the end of the current line
+            // Find line end
             int lineEnd = text.IndexOf('\n', caretIndex);
-            if (lineEnd == -1) lineEnd = text.Length;
+            if (lineEnd < 0) lineEnd = text.Length;
             
-            return text.Substring(lineStart, lineEnd - lineStart).TrimEnd('\r');
+            return text.Substring(lineStart, lineEnd - lineStart);
         }
 
-        private bool IsNumberedLine(string line)
-        {
-            if (line.Length < 3) return false;
-            return char.IsDigit(line[0]) && line[1] == '.' && line[2] == ' ';
-        }
-
-        private string GetNumberedLineContent(string line)
-        {
-            if (!IsNumberedLine(line)) return line;
-            return line.Substring(3).Trim();
-        }
-
-        private int GetNumberFromLine(string line)
-        {
-            if (!IsNumberedLine(line)) return 1;
-            if (int.TryParse(line.Substring(0, 1), out int number))
-                return number;
-            return 1;
-        }
-
-        private void InsertNewLineWithMarker(string marker)
+        private void InsertAtCaret(string textToInsert)
         {
             try
             {
-                var currentText = NoteText ?? string.Empty;
-                var caretIndex = NoteTextBox.CaretIndex;
-                var newText = currentText.Insert(caretIndex, marker);
-                NoteText = newText;
+                var textBox = NoteTextBox;
+                int caretPos = textBox.CaretIndex;
                 
-                // Move cursor to end of inserted text
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    NoteTextBox.CaretIndex = caretIndex + marker.Length;
-                    NoteTextBox.Focus();
-                }));
+                System.Diagnostics.Debug.WriteLine($"?? Inserting '{textToInsert}' at position {caretPos}");
+                
+                // Insert text directly into TextBox
+                textBox.Text = textBox.Text.Insert(caretPos, textToInsert);
+                
+                // Move caret to end of inserted text
+                textBox.CaretIndex = caretPos + textToInsert.Length;
+                
+                System.Diagnostics.Debug.WriteLine($"? Text inserted, caret moved to {textBox.CaretIndex}");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error inserting new line with marker: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"? Error inserting text: {ex.Message}");
             }
         }
 
-        private void RemoveCurrentListMarker(string text, int caretIndex, string currentLine)
+        private void RemoveBulletFromCurrentLine(string text, int caretIndex, string currentLine)
         {
             try
             {
-                // Find the start of the current line
+                System.Diagnostics.Debug.WriteLine("??? Removing bullet from current line");
+                
+                // Find where current line starts in the full text
                 int lineStart = text.LastIndexOf('\n', Math.Max(0, caretIndex - 1));
-                if (lineStart == -1) lineStart = 0;
-                else lineStart++; // Move past the \n character
+                if (lineStart < 0) lineStart = 0;
+                else lineStart++; // Skip the \n
                 
-                // Remove the list marker from the current line, leaving just a newline
-                var beforeLine = text.Substring(0, lineStart);
-                var afterLine = text.Substring(caretIndex);
+                // Replace the bullet with nothing
+                string lineWithoutBullet = currentLine.Replace("• ", "");
                 
-                NoteText = beforeLine + afterLine;
+                // Rebuild the text
+                string before = text.Substring(0, lineStart);
+                string after = text.Substring(lineStart + currentLine.Length);
                 
-                // Position cursor at the beginning of the now-empty line
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    NoteTextBox.CaretIndex = lineStart;
-                    NoteTextBox.Focus();
-                }));
+                NoteTextBox.Text = before + lineWithoutBullet + after;
+                NoteTextBox.CaretIndex = lineStart;
+                
+                System.Diagnostics.Debug.WriteLine("? Bullet removed");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error removing list marker: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"? Error removing bullet: {ex.Message}");
+            }
+        }
+
+        private void RemoveNumberFromCurrentLine(string text, int caretIndex, string currentLine)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("??? Removing number from current line");
+                
+                // Find where current line starts in the full text
+                int lineStart = text.LastIndexOf('\n', Math.Max(0, caretIndex - 1));
+                if (lineStart < 0) lineStart = 0;
+                else lineStart++; // Skip the \n
+                
+                // Remove the number pattern
+                string lineWithoutNumber = System.Text.RegularExpressions.Regex.Replace(currentLine, @"^\d+\.\s", "");
+                
+                // Rebuild the text
+                string before = text.Substring(0, lineStart);
+                string after = text.Substring(lineStart + currentLine.Length);
+                
+                NoteTextBox.Text = before + lineWithoutNumber + after;
+                NoteTextBox.CaretIndex = lineStart;
+                
+                System.Diagnostics.Debug.WriteLine("? Number removed");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"? Error removing number: {ex.Message}");
+            }
+        }
+
+        private void RemoveCheckboxFromCurrentLine(string text, int caretIndex, string currentLine)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("??? Removing checkbox from current line");
+                
+                // Find where current line starts in the full text
+                int lineStart = text.LastIndexOf('\n', Math.Max(0, caretIndex - 1));
+                if (lineStart < 0) lineStart = 0;
+                else lineStart++; // Skip the \n
+                
+                // Replace the checkbox with nothing
+                string lineWithoutCheckbox = currentLine.Replace("? ", "").Replace("? ", "");
+                
+                // Rebuild the text
+                string before = text.Substring(0, lineStart);
+                string after = text.Substring(lineStart + currentLine.Length);
+                
+                NoteTextBox.Text = before + lineWithoutCheckbox + after;
+                NoteTextBox.CaretIndex = lineStart;
+                
+                System.Diagnostics.Debug.WriteLine("? Checkbox removed");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"? Error removing checkbox: {ex.Message}");
+            }
+        }
+
+        private void SaveButton_Click(object sender, RoutedEventArgs e)
+        {
+            SaveAndClose();
+        }
+
+        private void ClearButton_Click(object sender, RoutedEventArgs e)
+        {
+            var result = MessageBox.Show("Are you sure you want to clear all text?", 
+                "Clear Note", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            
+            if (result == MessageBoxResult.Yes)
+            {
+                NoteText = string.Empty;
+                NoteTextBox.Focus();
             }
         }
 
@@ -312,9 +362,11 @@ namespace EasyToDo.Views
             foreach (var line in lines)
             {
                 var trimmed = line.Trim();
-                if (trimmed.Length > 2 && char.IsDigit(trimmed[0]) && trimmed[1] == '.')
+                var numberMatch = System.Text.RegularExpressions.Regex.Match(trimmed, @"^(\d+)\.\s");
+                if (numberMatch.Success)
                 {
-                    if (int.TryParse(trimmed.Substring(0, 1), out int num) && num >= nextNumber)
+                    int num = int.Parse(numberMatch.Groups[1].Value);
+                    if (num >= nextNumber)
                     {
                         nextNumber = num + 1;
                     }
@@ -360,23 +412,6 @@ namespace EasyToDo.Views
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error inserting text: {ex.Message}");
-            }
-        }
-
-        private void SaveButton_Click(object sender, RoutedEventArgs e)
-        {
-            SaveAndClose();
-        }
-
-        private void ClearButton_Click(object sender, RoutedEventArgs e)
-        {
-            var result = MessageBox.Show("Are you sure you want to clear all text?", 
-                "Clear Note", MessageBoxButton.YesNo, MessageBoxImage.Question);
-            
-            if (result == MessageBoxResult.Yes)
-            {
-                NoteText = string.Empty;
-                NoteTextBox.Focus();
             }
         }
 
